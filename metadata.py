@@ -30,7 +30,7 @@ def extract_timestamp_from_file(filepath: pathlib.Path) -> str:
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("-d", default=".", help="Path prefix of URL files")
+    argparser.add_argument("-d", "--directory", default=".", help="Path prefix of URL files")
     argparser.add_argument("url_files", help="File paths of input URL files (*.url; one path per line)")
     argparser.add_argument("output_file", help="Output file (JSONL)")
     args = argparser.parse_args()
@@ -38,15 +38,15 @@ if __name__ == "__main__":
     with open(args.url_files, "r") as f, open(args.output_file, "w") as of:
         for line in f:
             # decompose a url, which is like `./html/<country>/orig/<domain>/<filename>`, into its parts
-            _, country, _, domain, url_filename = pathlib.Path(line.strip()).parts
+            _, country, _, domain, *url_parts = pathlib.Path(line.strip()).parts
+            url_filename = pathlib.Path(*url_parts)
 
             # list file paths
-            data_dir = pathlib.Path(args.d)
-            basename = pathlib.Path(url_filename).stem
-            url_filepath = data_dir / "html" / country / "orig" / domain / (basename + ".url")
-            orig_filepath = data_dir / "html" / country / "orig" / domain / (basename + ".html")
-            ja_filepath = data_dir / "html" / country / "ja_translated" / domain / (basename + ".html")
-            xml_filepath = data_dir / "xml" / country / "ja_translated" / domain / (basename + ".xml")
+            data_dir = pathlib.Path(args.directory)
+            url_filepath = data_dir / "html" / country / "orig" / domain / url_filename.with_suffix(".url")
+            orig_filepath = data_dir / "html" / country / "orig" / domain / url_filename.with_suffix(".html")
+            ja_filepath = data_dir / "html" / country / "ja_translated" / domain / url_filename.with_suffix(".html")
+            xml_filepath = data_dir / "xml" / country / "ja_translated" / domain / url_filename.with_suffix(".xml")
 
             # extract metadata by reading the files
             orig_url = extract_url_from_url_file(url_filepath)
@@ -61,15 +61,19 @@ if __name__ == "__main__":
             # append the metadata
             meta = {
                 "country": country,
-                "ja_title": ja_title,
-                "orig_title": orig_title,
-                "ja_file": str(ja_filepath.relative_to(data_dir)),
-                "orig_file": str(orig_filepath.relative_to(data_dir)),
-                "xml_file": str(xml_filepath.relative_to(data_dir)),
-                "ja_timestamp": ja_timestamp,
-                "orig_timestamp": orig_timestamp,
-                "xml_timestamp": xml_timestamp,
-                "orig_url": orig_url,
+                "orig": {
+                    "file": str(orig_filepath.relative_to(data_dir)),
+                    "title": orig_title,
+                    "timestamp": orig_timestamp
+                },
+                "ja_translated": {
+                    "file": str(ja_filepath.relative_to(data_dir)),
+                    "title": ja_title,
+                    "timestamp": ja_timestamp,
+                    "xml_file": str(xml_filepath.relative_to(data_dir)),
+                    "xml_timestamp": xml_timestamp
+                },
+                "url": orig_url,
                 "domain": domain
             }
             
