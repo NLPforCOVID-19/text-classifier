@@ -51,7 +51,7 @@ def classify(text, keyword_dict):
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("-d", default=".", help="Path prefix of XML files")
+    argparser.add_argument("-d", "--directory", default=".", help="Path prefix of XML files")
     argparser.add_argument("metadata_file", help="Metadata file (JSON)")
     argparser.add_argument("output_file", help="Output file (JSON)")
     args = argparser.parse_args()
@@ -60,15 +60,12 @@ if __name__ == "__main__":
     keywords = {key: set(value.split()) for key, value in keywords.items()}
     juman = Juman()
 
-    # read metadata file
-    with open(args.metadata_file, "r") as metadata_file:
-        metadata = json.load(metadata_file)
-
-    # classify each file
-    for lang, pages in metadata.items():
-        for page in pages:
+    with open(args.metadata_file, "r") as metadata_file, open(args.output_file, "w") as of:
+        for line in metadata_file:
+            line = line.strip()
+            page = json.loads(line)
             xml_file = page["xml_file"]
-            etree = ElementTree.parse(f"{args.d}/{xml_file}")
+            etree = ElementTree.parse(f"{args.directory}/{xml_file}")
             wordlists, rawsentences = to_text(juman, etree, target_pos)
 
             # apply classifier
@@ -79,8 +76,7 @@ if __name__ == "__main__":
             snippets = { clss: [rawsentences[i] for i in ids] for clss, ids in snippet_ids.items() }
             page["snippets"] = snippets
 
-    # output the results into JSON file
-    with open(args.output_file, "w") as of:
-        json.dump(metadata, of, ensure_ascii=False)
+            # output the results into JSONL file
+            json.dump(page, of, ensure_ascii=False)
+            of.write("\n")
 
-        
