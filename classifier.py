@@ -1,10 +1,13 @@
 """Classify new texts into pre-defined classes"""
 
+import logging
 import argparse
 from xml.etree import ElementTree
 import json
 from collections import defaultdict
 from pyknp import Juman
+
+logger = logging.getLogger(__name__)
 
 target_pos = ["名詞" ,"動詞", "未定義語"]
 
@@ -52,6 +55,7 @@ def classify(text, keyword_dict):
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-d", "--directory", default=".", help="Path prefix of XML files")
+    argparser.add_argument("-t", "--target", default="ja_translated", help="JSON attribute of target language")
     argparser.add_argument("metadata_file", help="Metadata file (JSON)")
     argparser.add_argument("output_file", help="Output file (JSON)")
     args = argparser.parse_args()
@@ -64,8 +68,13 @@ if __name__ == "__main__":
         for line in metadata_file:
             line = line.strip()
             page = json.loads(line)
-            xml_file = page["xml_file"]
-            etree = ElementTree.parse(f"{args.directory}/{xml_file}")
+            xml_file = page[args.target]["xml_file"]
+            #print(xml_file)
+            try:
+                etree = ElementTree.parse(f"{args.directory}/{xml_file}")
+            except ElementTree.ParseError:
+                logger.error("XML file broken: %s", xml_file)
+                continue
             wordlists, rawsentences = to_text(juman, etree, target_pos)
 
             # apply classifier
