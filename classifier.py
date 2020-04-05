@@ -3,6 +3,7 @@
 import logging
 import argparse
 from xml.etree import ElementTree
+import unicodedata
 import json
 from collections import defaultdict
 from pyknp import Juman
@@ -11,16 +12,12 @@ logger = logging.getLogger(__name__)
 
 target_pos = ["名詞" ,"動詞", "未定義語"]
 
-keywords = {
-    "感染状況": "感染状況 感染者 重症 死者",
-    "予防": "予防 手洗い うがい 防ぐ",
-    "検査": "検査 PCR",
-    "渡航制限": "渡航制限 渡航禁止 検疫 防疫",
-    "休校": "休校",
-    "イベント中止": "イベント 自粛",
-    "経済への影響": "株価 為替",
-    "モノの不足": "買い占め 不足",
-}
+def read_keywords(keyword_file):
+    keywords = {}
+    for line in keyword_file:
+        clss, *words = line.strip().split()
+        keywords[clss] = [unicodedata.normalize("NFKC", k) for k in words]
+    return keywords
 
 def to_text(juman, standard_format, target_pos=[]):
     "Convert standard format into a simple text (list of word lists)"
@@ -31,39 +28,47 @@ def to_text(juman, standard_format, target_pos=[]):
         annotation = text.find("Annotation")
         if annotation is None: continue
         mlist = juman.result(annotation.text)
-        wordlists.append([m.midasi for m in mlist.mrph_list() if m.hinsi in target_pos])
+        wordlists.append([unicodedata.normalize("NFKC", m.midasi) for m in mlist.mrph_list() if m.hinsi in target_pos])
         rawsentence = text.find("RawString")
         rawsentences.append(rawsentence.text)
     return wordlists, rawsentences
 
-def classify(text, keyword_dict):
+def classify(text, rawtext, keyword_dict):
     "Classify a text into pre-defined classes"
     classes = {}
     snippets = {}
     for clss, keywords in keyword_dict.items():
+        keywords = set(keywords)
         classes[clss] = 0
         snippet_scores = []
-        for i, sentence in enumerate(text):
-            if len(sentence) <= 3: continue   # ignore sentences with <=3 content words
-            num_keywords = len(keywords & set(sentence))
+        for wordlist, rawsentence in zip(text, rawtext):
+            if len(wordlist) <= 3: continue   # ignore sentences with <=3 content words
+            num_keywords = len(keywords & set(wordlist))
             if num_keywords >= 1:
                 classes[clss] = 1
-                snippet_scores.append((i, num_keywords / len(sentence)))
+                snippet_scores.append((rawsentence, num_keywords / len(wordlist)))
         snippets[clss] = [a[0] for a in sorted(snippet_scores, key=lambda x: x[1], reverse=True)]
     return classes, snippets
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(name)s:%(levelname)s: %(message)s')
+    
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-d", "--directory", default=".", help="Path prefix of XML files")
     argparser.add_argument("-t", "--target", default="ja_translated", help="JSON attribute of target language")
     argparser.add_argument("metadata_file", help="Metadata file (JSON)")
+    argparser.add_argument("keyword_file", help="Keyword file (space-separated text)")
     argparser.add_argument("output_file", help="Output file (JSON)")
     args = argparser.parse_args()
 
     # initialize keyword dict and juman
-    keywords = {key: set(value.split()) for key, value in keywords.items()}
+    with open(args.keyword_file, "r") as f:
+        keywords = read_keywords(f)
     juman = Juman()
 
+    num_pages = 0
+    num_ignored = 0
+    statistics = defaultdict(int)
     with open(args.metadata_file, "r") as metadata_file, open(args.output_file, "w") as of:
         for line in metadata_file:
             line = line.strip()
@@ -72,20 +77,27 @@ if __name__ == "__main__":
             #print(xml_file)
             try:
                 etree = ElementTree.parse(f"{args.directory}/{xml_file}")
+                num_pages += 1
             except ElementTree.ParseError:
                 logger.error("XML file broken: %s", xml_file)
+                num_ignored += 1
                 continue
             wordlists, rawsentences = to_text(juman, etree, target_pos)
 
             # apply classifier
-            classes, snippet_ids = classify(wordlists, keywords)
+            classes, snippets = classify(wordlists, rawsentences, keywords)
             page["classes"] = classes
-
-            # snippets
-            snippets = { clss: [rawsentences[i] for i in ids] for clss, ids in snippet_ids.items() }
             page["snippets"] = snippets
+            for clss, output in classes.items():
+                statistics[clss] += output
 
             # output the results into JSONL file
             json.dump(page, of, ensure_ascii=False)
             of.write("\n")
+
+    logger.info("Pages: %s", num_pages)
+    logger.info("Ignored: %s", num_ignored)
+    for clss, num in statistics.items():
+        logger.info("%s: %s", clss, num)
+
 
