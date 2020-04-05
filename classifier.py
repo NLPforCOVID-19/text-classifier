@@ -38,12 +38,12 @@ def classify(text, rawtext, keyword_dict):
     classes = {}
     snippets = {}
     for clss, keywords in keyword_dict.items():
-        keywords = set(keywords)
         classes[clss] = 0
         snippet_scores = []
         for wordlist, rawsentence in zip(text, rawtext):
             if len(wordlist) <= 3: continue   # ignore sentences with <=3 content words
-            num_keywords = len(keywords & set(wordlist))
+            string = ''.join(wordlist)
+            num_keywords = sum([1 for key in keywords if key in string])
             if num_keywords >= 1:
                 classes[clss] = 1
                 snippet_scores.append((rawsentence, num_keywords / len(wordlist)))
