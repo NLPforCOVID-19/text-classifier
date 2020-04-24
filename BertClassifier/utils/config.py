@@ -6,7 +6,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Bert Classifier Project for Covid-19')
     # data arguments
-    parser.add_argument('--data', default='data/',
+    parser.add_argument('--data', default='data/0421/',
                         help='path to dataset')
     # parser.add_argument('--glove', default='data/glove/',
     #                     help='directory with GLOVE embeddings')
