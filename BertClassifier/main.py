@@ -1,4 +1,3 @@
-from utils import DRNNGDataset
 import os
 import random
 import logging
@@ -7,23 +6,22 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from config import parse_args
-from utils import globalVar
-from utils import utils
-from utils import Vocab, DetVocab
-from utils import Constant
-from model import rnng
 from helpers import Trainer
 import pydevd_pycharm
+from .utils import HParams, DetVocab, parse_args
 
 
 def main():
-    global args
+
+    # hyperparameter holder
+    hparams = HParams()
     args = parse_args()
+    hparams.set_from_args(args)
+
+    # setting up logger
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s:%(name)s:%(message)s")
-#     logger = globalVar.logger
     # file logger
     fh = logging.FileHandler(os.path.join(args.save, args.expname)+'.log', mode='w')
     fh.setLevel(logging.INFO)
@@ -34,29 +32,22 @@ def main():
     ch.setLevel(logging.DEBUG)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
+    hparams.logger = logger
 
-    Hpa
-
-    globalVar.logger = logger
-
-    # argument validation
+    # setting up device
     args.cuda = args.cuda and torch.cuda.is_available()
-
-    #
     device = torch.device("cuda:0" if args.cuda else "cpu")
-#     device = torch.device("cpu")
-    globalVar.device = device
+    hparams.device = device
 
-    print(globalVar.device)
-
+    # mode setting
     if args.debug:
         pydevd_pycharm.settrace('localhost', port=12025, stdoutToServer=True, stderrToServer=True)
-
-
     if args.sparse and args.wd != 0:
         logger.error('Sparsity and weight decay are incompatible, pick one!')
         exit()
-    logger.debug(args)
+    # print out arguments
+    hparams.logger.debug(args)
+    # seeding
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     if args.cuda:
@@ -65,43 +56,33 @@ def main():
     if not os.path.exists(args.save):
         os.makedirs(args.save)
 
+    # class vocab buildup
+    classes_vocab = DetVocab(filename=args.class_config)
+    hparams.classes_vocab = classes_vocab
+
+    #Initialize BERT model (as it includes Jumanpp analyzer)
+    model = rnng.DRNNG_LSTM(input_act=300, input_buf=300, component_size=300, hid_act=300, hid_buf=300,
+                                  hid_stack=300)
+    # dataset loading
+    train_file = os.path.join(args.data, 'train')
+    dev_file = os.path.join(args.data, 'dev')
+    test_file = os.path.join(args.data, 'test')
+
+
+
+
+
+
+
+
+
+
+
 
     #vocab buildup
     train_dir = os.path.join(args.data, 'train/')
     dev_dir = os.path.join(args.data, 'dev/')
     test_dir = os.path.join(args.data, 'test/')
-
-    rnng_vocab_file = os.path.join(args.data, 'rnng.vocab')
-    if not os.path.isfile(rnng_vocab_file):
-        token_files= [os.path.join(split, 'tokens') for split in [train_dir]]  #Using unknowified tokens
-        rnng_vocab_file = os.path.join(args.data, 'rnng.vocab')
-        utils.build_vocab(token_files, rnng_vocab_file)
-    vocab = Vocab(filename=rnng_vocab_file, data=[Constant.UNK_WORD, Constant.EOS_WORD]) # NO special token is needed as unknownification has been done in preprocessing stage
-    globalVar.vocab = vocab
-
-    act_vocab_file = os.path.join(args.data, 'act.vocab')
-    if not os.path.isfile(act_vocab_file):
-        token_files= [os.path.join(split, 'actions') for split in [train_dir]]
-        rnng_vocab_file = os.path.join(args.data, 'act.vocab')
-        utils.build_vocab(token_files, act_vocab_file)
-    act_vocab = Vocab(filename=act_vocab_file, data=[Constant.PAD_WORD]) # NO special token is needed as unknownification has been done in preprocessing stage
-    globalVar.act_vocab = act_vocab
-
-    pos_vocab_file = os.path.join(args.data, 'pos.vocab')
-    if not os.path.isfile(pos_vocab_file):
-        token_files= [os.path.join(split, 'POSs') for split in [train_dir]]
-        pos_vocab_file = os.path.join(args.data, 'pos.vocab')
-        utils.build_vocab(token_files, pos_vocab_file)
-    pos_vocab = DetVocab(filename=pos_vocab_file) # NO special token is needed as unknownification has been done in preprocessing stage
-    globalVar.pos_vocab = pos_vocab
-
-    nts_vocab_file = os.path.join(args.data, 'nts.vocab')
-    if not os.path.isfile(nts_vocab_file):
-        NTs = set(filter(lambda x: x.startswith('NT'), act_vocab.idxToLabel.values()))
-        nts_vocab_file = os.path.join(args.data, 'nts.vocab')
-        utils.build_vocab_set(NTs, nts_vocab_file)
-    nts_vocab = DetVocab(filename=nts_vocab_file) # NO special token is needed as unknownification has been done in preprocessing stage
-    globalVar.nts_vocab = nts_vocab
 
 
     # Load datasets
@@ -129,7 +110,7 @@ def main():
 
     globalVar.f_compose = rnng.RNNComposingFunc()
     globalVar.f_compose.to(device)
-    model_drnng = rnng.DRNNG_LSTM(input_act=300, input_buf=300, component_size=300, hid_act=300, hid_buf=300, hid_stack=300)
+
     criterion = nn.NLLLoss()
 
     emb_file = os.path.join(args.data, 'rnng_emb.pth')
