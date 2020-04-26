@@ -10,10 +10,15 @@ def parse_args():
                         help='path to dataset')
     # parser.add_argument('--glove', default='data/glove/',
     #                     help='directory with GLOVE embeddings')
-    parser.add_argument('--bert_path', default='dependencies/bert/..',
+    parser.add_argument('--bert_path', default='dependencies/bert/Japanese_L-12_H-768_A-12_E-30_BPE_WWM_transformers',
                         help='directory where bert model resides')
-    # parser.add_argument('--expname', type=str, default='rnng-discriminative',
-    #                     help='Name to identify experiment')
+    parser.add_argument('--expname', type=str, default='BertClassifier',
+                        help='Name to identify experiment')
+    parser.add_argument('--save', type=str, default='checkpoints',
+                        help='path to checkpoints')
+    parser.add_argument('--class_config', type=str, default='configs/classes',
+                        help='path to checkpoints')
+    
     # model arguments
     parser.add_argument('--input_dim', default=300, type=int,
                         help='Size of input word vector')
@@ -28,6 +33,8 @@ def parse_args():
                         help='Number of classes in dataset')
     parser.add_argument('--freeze_embed', action='store_true',
                         help='Freeze word embeddings')
+    parser.add_argument('--batchsize', type=int, default=25,
+                        help='batchsize')
     # finetuning arguments
     parser.add_argument('--epochs', default=15, type=int,
                         help='number of total epochs to run')
@@ -36,6 +43,10 @@ def parse_args():
                               incompatible with weight decay')
     parser.add_argument('--optim', default='adam',
                         help='optimizer (default: adagrad)')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='learning rate')
+    parser.add_argument('--wd', default=1e-4, type=float,
+                        help='weight decay (default: 1e-4)')
     # miscellaneous options
     parser.add_argument('--seed', default=123, type=int,
                         help='random seed (default: 123)')

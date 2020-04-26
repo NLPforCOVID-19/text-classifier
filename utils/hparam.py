@@ -21,13 +21,18 @@ class HParams:
         return res
 
     def set_from_args(self, args):
-        for k in dir(self):
-            if k.startswith('_') or k in self._skip_keys:
-                continue
-            if hasattr(args, k):
-                self[k] = getattr(args, k)
-            elif hasattr(args, f'no_{k}'):
-                self[k] = getattr(args, f'no_{k}')
+        for key, value in args.__dict__.items():
+            # print(k)
+            self.__dict__[key] = value
+        # for k in dir(self):
+        #     if k.startswith('_') or k in self._skip_keys:
+        #         continue
+        #
+        #     # if hasattr(args, k):
+        #     #     # print(k)
+        #     #     self[k] = getattr(args, k)
+        #     # elif hasattr(args, f'no_{k}'):
+        #     #     self[k] = getattr(args, f'no_{k}')
 
     def print(self):
         for k in dir(self):
