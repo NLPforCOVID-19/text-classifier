@@ -24,8 +24,8 @@ class Trainer(object):
         super(Trainer, self).__init__()
         self.hparams = hparams
         self.model = model
-        self.criterion = nn.BCELoss()
-        self.criterion_rmse = nn.MSELoss()
+        self.criterion = nn.BCELoss().to(hparams.device)
+        self.criterion_rmse = nn.MSELoss().to(hparams.device)
         self.optimizer = optimizer
         self.device = hparams.device
         self.epoch = 0
@@ -38,15 +38,16 @@ class Trainer(object):
         indices = torch.randperm(len(dataset), dtype=torch.long, device=self.device)
         test_loss_ce, test_loss_rmse = 0.0, 0.0
         for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
-            # print(dataset[indices[idx]])
             doc, tags = dataset[indices[idx]]
+            doc = [sent[:64] for sent in doc]
+            doc = doc[:96]
+            # for sent in doc:
+            #     sent.to(self.hparams.device)
+            # for tag in tags:
+            #     tag.to(self.hparams.device)
             isRelated, clarity, usefulness, topics = tags
-            doc = pad_sequence(doc) # padding document
-            # print(doc.size())
+            doc = pad_sequence(doc).transpose(0,1) # padding document
             result_ce, result_rmse = self.model(doc)
-            # print(result_ce, result_rmse)
-            # print(isRelated, topics)
-            # print(torch.cat((isRelated, topics), dim=0))
             loss_ce = self.criterion(result_ce, torch.cat((isRelated, topics), dim=0))
             loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
@@ -57,8 +58,9 @@ class Trainer(object):
             total_loss_rmse += loss_rmse.item()
             test_loss_ce += loss_ce.item()
             test_loss_rmse += loss_rmse.item()
-            loss_ce.backward(retain_graph=True)
-            loss_rmse.backward(retain_graph=True)
+            (loss_ce+loss_rmse).backward()
+            # loss_ce.backward(retain_graph=True)
+            # loss_rmse.backward(retain_graph=True)
             if idx % self.hparams.batchsize == 0 and idx > 0: #pesudo minibatch
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -78,7 +80,6 @@ class Trainer(object):
             # test_loss = 0.0
             predictions = []
             for idx in tqdm(range(len(dataset)), desc='Testing epoch ' + str(self.epoch) + ''):
-                # print(dataset[indices[idx]])
                 status, actions = dataset[idx]
                 tokens = deepcopy(status.buffer)
                 POSs = deepcopy(status.buffer_pos)

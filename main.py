@@ -78,7 +78,7 @@ def main():
     if os.path.isfile(train_file):
         train_dataset = torch.load(train_file)
     else:
-        train_dataset = BCDataset.loadData(train_json, jumanpp.tokenize, model.token2id)
+        train_dataset = BCDataset.loadData(train_json, jumanpp.tokenize, model.token2id, device)
         # print(train_dataset[0])
         torch.save(train_dataset, train_file)
     logger.debug('==> Size of train data:{}'.format(len(train_dataset)))
@@ -88,7 +88,7 @@ def main():
     if os.path.isfile(dev_file):
         dev_dataset = torch.load(dev_file)
     else:
-        dev_dataset = BCDataset.loadData(dev_json, jumanpp.tokenize, model.token2id)
+        dev_dataset = BCDataset.loadData(dev_json, jumanpp.tokenize, model.token2id, device)
         torch.save(dev_dataset, dev_file)
     logger.debug('==> Size of dev data:{}'.format(len(dev_dataset)))
     # dev_dataset.moveto(hparams.device)
@@ -97,7 +97,7 @@ def main():
     if os.path.isfile(test_file):
         test_dataset = torch.load(test_file)
     else:
-        test_dataset = BCDataset.loadData(test_json, jumanpp.tokenize, model.token2id)
+        test_dataset = BCDataset.loadData(test_json, jumanpp.tokenize, model.token2id, device)
         torch.save(test_dataset, test_file)
     logger.debug('==> Size of test data:{}'.format(len(test_dataset)))
     # test_dataset.moveto(hparams.device)
@@ -136,7 +136,7 @@ def main():
     for epoch in range(args.epochs):
         train_loss = trainer.train(train_dataset)
         logger.info('==> Epoch {}, Train \tLoss: {} '.format(epoch, train_loss))
-        if train_file < best:
+        if train_loss < best:
             torch.save(model.state_dict(), model_file)
         # train_metrics = trainer.test(train_dataset)
 
