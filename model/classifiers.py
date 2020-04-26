@@ -32,22 +32,35 @@ class JumanAnalyzer(object):
 class BertClassifier(nn.Module):
     def __init__(self, path_to_bert, classes, hparam):
         super(BertClassifier, self).__init__()
-        self.init_bert(path_to_bert, hparam.logger)
-        self.composer = RNNComposer(hparam=hparam, hidden=768, input=768, bidirectionality=True)
-        self.labels = nn.Linear(768, classes)  # Assuming BERT-BASE is used
-        self.is_related = nn.Linear(768, 1)
-        self.usefulness = nn.Linear(768, 1)
-        self.clarity = nn.Linear(768, 1)
+        self.hparams = hparam
+        self.init_bert(path_to_bert, hparam.logger, hparam.device)
+        self.composer = RNNComposer(hparam=hparam, hidden=300, input=768, bidirectionality=True).to(hparam.device)
+        self.labels = nn.Linear(300, classes)  # Assuming BERT-BASE is used
+        self.is_related = nn.Linear(300, 1)
+        self.usefulness = nn.Linear(300, 1)
+        self.clarity = nn.Linear(300, 1)
 
-    def init_bert(self, path_to_bert, logger):
+    def init_bert(self, path_to_bert, logger, device):
         self.model = BertModel.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
+        self.model.to('cuda')
         self.tokenizer = BertTokenizer.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
         logger.info("Bert Model loaded")
     def forward(self, input_ids):
 
         #input_ids should be organized as (V, ids), ids only contains one sentence -> which means only one document at a time
+        cnt = 0
+        last_hiddens = []
+        doc_len = input_ids.size(0)
+        # while cnt < doc_len:
+        #     if cnt+25 < doc_len:
+        #         last_hiddens.append(self.model(input_ids[cnt:cnt+25])[0])
+        #     else:
+        #         last_hiddens.append(self.model(input_ids[cnt:doc_len])[0])
+        #     cnt+=25
+        # last_hidden = torch.cat(last_hiddens, dim=0)
 
         last_hidden = self.model(input_ids)[0]
+
         doc_representation = self.composer(last_hidden[:, 0, :].unsqueeze(1))
 
         doc_representation = (doc_representation[0] + doc_representation[1]).view(-1)
@@ -64,6 +77,10 @@ class BertClassifier(nn.Module):
 
         topics = self.labels(doc_representation)
         topics_score = torch.sigmoid(topics)
+
+        print('current memory allocated: {}'.format(torch.cuda.memory_allocated() / 1024 ** 2))
+        print('max memory allocated: {}'.format(torch.cuda.max_memory_allocated() / 1024 ** 2))
+        print('cached memory: {}'.format(torch.cuda.memory_cached() / 1024 ** 2))
 
         return torch.cat((is_related_score,  topics_score), dim=0), torch.cat((clarity_score, usefulness_score), dim=0)
 

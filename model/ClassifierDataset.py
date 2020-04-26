@@ -46,7 +46,7 @@ class BCDataset(data.Dataset):
     def getTopicIdx(self):
         return self.topicIdx
     @staticmethod
-    def loadData(file, tokenize, convertToken2Idx):
+    def loadData(file, tokenize, convertToken2Idx, device):
         with open(file) as f:
             items = f.readlines()
             items = [json.loads(item) for item in items]
@@ -64,15 +64,15 @@ class BCDataset(data.Dataset):
                 sents[idx] = ['[CLS]'] + tokenize(sents[idx])
                 # print(sents[idx])
             # sents = [tokenize(sent) for sent in sents]
-            sents = [torch.tensor(convertToken2Idx(sent)) for sent in sents]
+            sents = [torch.tensor(convertToken2Idx(sent), device = device) for sent in sents]
             docs.append(sents)
-            tag_isRelated.append(torch.tensor([item["tags"]["COVID-19関連"]], dtype=torch.float))
-            tag_clarity.append(torch.tensor([item["tags"]["clarity"]], dtype=torch.float))
-            tag_usefulness.append(torch.tensor([item["tags"]["usefulness"]], dtype=torch.float))
+            tag_isRelated.append(torch.tensor([item["tags"]["COVID-19関連"]], dtype=torch.float, device = device))
+            tag_clarity.append(torch.tensor([item["tags"]["clarity"]], dtype=torch.float, device = device))
+            tag_usefulness.append(torch.tensor([item["tags"]["usefulness"]], dtype=torch.float, device = device))
             if topicIdx is None:
                 topicIdx = list(item["tags"]["topic"].keys())
             # print(topicIdx)
-            topics.append(torch.tensor([tuple[1]for tuple in item["tags"]["topic"].items()], dtype=torch.float))
+            topics.append(torch.tensor([tuple[1]for tuple in item["tags"]["topic"].items()], dtype=torch.float, device = device))
         return BCDataset(docs, tag_isRelated, tag_clarity, tag_usefulness, topics, topicIdx)
 
 
