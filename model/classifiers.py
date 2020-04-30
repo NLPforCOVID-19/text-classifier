@@ -70,19 +70,19 @@ class BertClassifier(nn.Module):
         is_related_score = torch.sigmoid(is_related)
 
         clarity = self.clarity(doc_representation)
-        clarity_score = torch.relu(clarity)
+        clarity_score = torch.sigmoid(clarity)
 
         usefulness = self.usefulness(doc_representation)
-        usefulness_score = torch.relu(usefulness)
+        usefulness_score = torch.sigmoid(usefulness)
 
         topics = self.labels(doc_representation)
         topics_score = torch.sigmoid(topics)
 
-        print('current memory allocated: {}'.format(torch.cuda.memory_allocated() / 1024 ** 2))
-        print('max memory allocated: {}'.format(torch.cuda.max_memory_allocated() / 1024 ** 2))
-        print('cached memory: {}'.format(torch.cuda.memory_cached() / 1024 ** 2))
+        # print('current memory allocated: {}'.format(torch.cuda.memory_allocated() / 1024 ** 2))
+        # print('max memory allocated: {}'.format(torch.cuda.max_memory_allocated() / 1024 ** 2))
+        # print('cached memory: {}'.format(torch.cuda.memory_cached() / 1024 ** 2))
 
-        return torch.cat((is_related_score,  topics_score), dim=0), torch.cat((clarity_score, usefulness_score), dim=0)
+        return torch.cat((is_related_score,  topics_score, clarity_score, usefulness_score), dim=0)#, torch.cat((clarity_score, usefulness_score), dim=0)
 
     def token2id(self, tokens):
         # Input tokens are a list of token

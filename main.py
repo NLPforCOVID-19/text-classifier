@@ -8,9 +8,10 @@ import torch.optim as optim
 
 # from helpers import Trainer
 #
-from utils import HParams, DetVocab, parse_args, Trainer
+from utils import HParams, DetVocab, parse_args, Trainer, print_evals, get_tags_from_dataset
 
 from model import BertClassifier, BCDataset, JumanAnalyzer
+
 
 
 def main():
@@ -100,20 +101,6 @@ def main():
         test_dataset = BCDataset.loadData(test_json, jumanpp.tokenize, model.token2id, device)
         torch.save(test_dataset, test_file)
     logger.debug('==> Size of test data:{}'.format(len(test_dataset)))
-    # test_dataset.moveto(hparams.device)
-
-
-
-
-
-
-
-
-
-
-
-    # globalVar.f_compose = rnng.RNNComposingFunc()
-    # globalVar.f_compose.to(device)
 
     criterion = nn.NLLLoss()
     model.to(hparams.device), criterion.to(hparams.device)
@@ -131,6 +118,8 @@ def main():
     # create trainer object for training and testing
     trainer = Trainer(hparams, model, criterion, optimizer)
     model_file = os.path.join(args.save, args.expname)
+    # model.load_state_dict(torch.load(os.path.join(args.save, args.expname)))
+
 
     best = float('inf')
     for epoch in range(args.epochs):
@@ -138,6 +127,10 @@ def main():
         logger.info('==> Epoch {}, Train \tLoss: {} '.format(epoch, train_loss))
         if train_loss < best:
             torch.save(model.state_dict(), model_file)
+        dev_loss = trainer.eval(dev_dataset)
+        logger.info('==> Epoch {}, Dev \tLoss: {} '.format(epoch, dev_loss))
+        results = trainer.test(test_dataset)
+        print_evals(results, get_tags_from_dataset(test_dataset), logger)
         # train_metrics = trainer.test(train_dataset)
 
 
