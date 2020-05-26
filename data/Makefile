@@ -15,7 +15,7 @@ cleanupload:
 	rm $(OUTPUT_DIR)/uploadlist
 	rm $(OUTPUT_DIR)/tbupload/*
 upload:$(OUTPUT_DIR)/uploadlist $(OUTPUT_DIR)/output.json
-	pypy3 uploader.py
+	python3 uploader.py
 	make cleanupload
 splitdata:
 	sed -n '1,2440 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.train
@@ -23,10 +23,10 @@ splitdata:
 	sed -n '2749,3050 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.test
 
 $(OUTPUT_DIR)/output.json: $(OUTPUT_DIR)/metadata.json keywords.txt
-	pypy3 classifier.py -d $(DATA_DIR) $< keywords.txt $@
+	python3 classifier.py -d $(DATA_DIR) $< keywords.txt $@
 
 $(OUTPUT_DIR)/metadata.json: $(OUTPUT_DIR)/target_files.txt
-	pypy3 metadata.py -d $(DATA_DIR) $< $@
+	python3 metadata.py -d $(DATA_DIR) $< $@
 
 $(OUTPUT_DIR)/uploadlist:
 	split -l 50 $(OUTPUT_DIR)/output.json $(TO_BE_UPLOAD_DIR)/output
