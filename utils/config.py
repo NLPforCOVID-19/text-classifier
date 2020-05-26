@@ -10,7 +10,7 @@ def parse_args():
                         help='path to dataset')
     # parser.add_argument('--glove', default='data/glove/',
     #                     help='directory with GLOVE embeddings')
-    parser.add_argument('--bert_path', default='dependencies/bert/Japanese_L-12_H-768_A-12_E-30_BPE_WWM_transformers',
+    parser.add_argument('--bert_path', default='dependencies/bert/L-6_H-768_A-6_E-40_BPE',
                         help='directory where bert model resides')
     parser.add_argument('--expname', type=str, default='BertClassifier',
                         help='Name to identify experiment')

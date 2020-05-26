@@ -11,7 +11,7 @@ class RNNComposer(SentenceComposer):
         super(RNNComposer, self).__init__()
         self.bidirectionality = bidirectionality
         self.hidden = hidden
-        self.init_hidden_vector = [torch.zeros(1, 1, hidden, device = hparam.device) ] *2
+        self.init_hidden_vector = [torch.nn.Parameter(torch.zeros(1, 1, hidden, device = hparam.device)) ] *2
         self.composer = nn.GRU(input, hidden, num_layers=1, bidirectional=bidirectionality)
         self.composer.to(hparam.device)
     def init_hidden(self, batch_size):
@@ -42,7 +42,7 @@ class BertClassifier(nn.Module):
 
     def init_bert(self, path_to_bert, logger, device):
         self.model = BertModel.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
-        self.model.to('cuda')
+        # self.model.to('cuda')
         self.tokenizer = BertTokenizer.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
         logger.info("Bert Model loaded")
     def forward(self, input_ids):
@@ -51,13 +51,6 @@ class BertClassifier(nn.Module):
         cnt = 0
         last_hiddens = []
         doc_len = input_ids.size(0)
-        # while cnt < doc_len:
-        #     if cnt+25 < doc_len:
-        #         last_hiddens.append(self.model(input_ids[cnt:cnt+25])[0])
-        #     else:
-        #         last_hiddens.append(self.model(input_ids[cnt:doc_len])[0])
-        #     cnt+=25
-        # last_hidden = torch.cat(last_hiddens, dim=0)
 
         last_hidden = self.model(input_ids)[0]
 
@@ -89,6 +82,9 @@ class BertClassifier(nn.Module):
         return self.tokenizer.convert_tokens_to_ids(tokens=tokens)
     def id2token(self, ids):
         return self.tokenizer.convert_ids_to_tokens(ids)
+
+    def tokenize(self, sent):
+        return self.tokenizer.tokenize(sent)
 
 
 

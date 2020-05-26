@@ -13,11 +13,7 @@ deletion = 0
 for anno in annotations:
     if anno["url"] in article_dict.keys():
         anno["text"] = article_dict[anno["url"]]["text"]
-        # print(anno["text"])
-    # else:
-    #     deletion+=1
-    #     print(anno)
-    #     annotations.remove(anno)
+
 annotations = [item for item in annotations if "text" in item.keys()]
 # print(deletion)
 print(len(annotations))

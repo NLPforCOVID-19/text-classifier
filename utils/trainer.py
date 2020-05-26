@@ -14,6 +14,7 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence, pack_sequence, pad_packed_sequence
 import torch.optim as optim
 from enum import Enum
+from .losses import f1_loss
 
 class TrainMode(Enum):
     Train = 0,
@@ -24,7 +25,7 @@ class Trainer(object):
         super(Trainer, self).__init__()
         self.hparams = hparams
         self.model = model
-        self.criterion = nn.BCELoss().to(hparams.device)
+        self.criterion = f1_loss#nn.BCELoss().to(hparams.device)
         self.criterion_rmse = nn.MSELoss().to(hparams.device)
         self.optimizer = optimizer
         self.device = hparams.device
@@ -48,6 +49,7 @@ class Trainer(object):
             result = self.model(doc)
             # print(result)
             #loss_ce = self.criterion(result_ce, torch.cat((isRelated, topics), dim=0))
+            # print(result)
             loss_ce = self.criterion(result, torch.cat((isRelated, topics, clarity, usefulness), dim=0))
             #loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
