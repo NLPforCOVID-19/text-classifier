@@ -42,7 +42,11 @@ class BertClassifier(nn.Module):
 
     def init_bert(self, path_to_bert, logger, device):
         self.model = BertModel.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
+<<<<<<< HEAD
         # self.model.to('cuda')
+=======
+        self.model.to('cuda')
+>>>>>>> origin/BertClassifier
         self.tokenizer = BertTokenizer.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
         logger.info("Bert Model loaded")
     def forward(self, input_ids):
@@ -51,6 +55,16 @@ class BertClassifier(nn.Module):
         cnt = 0
         last_hiddens = []
         doc_len = input_ids.size(0)
+<<<<<<< HEAD
+=======
+        # while cnt < doc_len:
+        #     if cnt+25 < doc_len:
+        #         last_hiddens.append(self.model(input_ids[cnt:cnt+25])[0])
+        #     else:
+        #         last_hiddens.append(self.model(input_ids[cnt:doc_len])[0])
+        #     cnt+=25
+        # last_hidden = torch.cat(last_hiddens, dim=0)
+>>>>>>> origin/BertClassifier
 
         last_hidden = self.model(input_ids)[0]
 
@@ -83,8 +97,11 @@ class BertClassifier(nn.Module):
     def id2token(self, ids):
         return self.tokenizer.convert_ids_to_tokens(ids)
 
+<<<<<<< HEAD
     def tokenize(self, sent):
         return self.tokenizer.tokenize(sent)
 
+=======
+>>>>>>> origin/BertClassifier
 
 
