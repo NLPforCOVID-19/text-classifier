@@ -12,7 +12,7 @@
 
 - Put `CoronavirusTranslationData20200421` and `crowdsourcing20200420.jsonl` in data folder
 - Run preprocess.py on root directory which will produce `crowdsourcing20200420.processed.jsonl`
-- Run `make all` and `make splitdata` on data folder with `CoronavirusTranslationData20200421` and `crowdsourcing20200420.processed.jsonl` in place, which will produce data necessary under data/0421
+- Run `make all` and `make splitdata` on data folder containing `CoronavirusTranslationData20200421` and `crowdsourcing20200420.processed.jsonl`, which will produce data necessary under data/0421
 
 ## Run BERT model
 
