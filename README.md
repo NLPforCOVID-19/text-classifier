@@ -1,5 +1,9 @@
 # BERT Simple Classifier 
 
+## Environment
+
+- To run this code, pytorch 1.3.0 and transformer 2.5.0 is recommended
+
 ## Preparing Model
 
 - Put pretrained BERT under `dependencies/bert/<Model of your choice>`
