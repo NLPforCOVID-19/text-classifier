@@ -2,7 +2,7 @@
 
 ## Preparing Model
 
--Put pretrained BERT under `dependencies/bert/<Model of your choice>`
+- Put pretrained BERT under `dependencies/bert/<Model of your choice>`
 
 ## Preparing data
 
