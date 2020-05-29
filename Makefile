@@ -1,14 +1,40 @@
-DATA_DIR = data/CoronavirusTranslationData20200331a
-OUTPUT_DIR = data
+# Makefile for data preprocessing
+# Usage:
+#   - Put `CoronavirusTranslationData20200427.zip` and `crowdsourcing20200511.jsonl.gz` in `data`
+#   - Run `make data`
+# Data files will be created in `data`
+#   - metadata.jsonl: metadata of HTML/XML files
+#   - textdata.jsonl: text data extracted from HTML files
+#   - annotatinos-{train,test}.jsonl: text data with class labels annotated
 
-all: $(OUTPUT_DIR)/output.jsonl
+DATA_DIR = data
+TRANSLATION_DATA = $(DATA_DIR)/CoronavirusTranslationData20200427
+ANNOTATION_DATA = $(DATA_DIR)/crowdsourcing20200511.jsonl
 
-$(OUTPUT_DIR)/output.jsonl: $(OUTPUT_DIR)/metadata.jsonl keywords.txt
-	python classifier.py -d $(DATA_DIR) $< keywords.txt $@
+data: $(DATA_DIR)/annotations.jsonl $(DATA_DIR)/annotations-train.jsonl $(DATA_DIR)/annotations-test.jsonl
 
-$(OUTPUT_DIR)/metadata.jsonl: $(OUTPUT_DIR)/target_files.txt
-	python metadata.py -d $(DATA_DIR) $< $@
+# Prepare source data
+$(TRANSLATION_DATA): $(TRANSLATION_DATA).zip
+	unzip $< -d $(DATA_DIR)
+	touch $(TRANSLATION_DATA)
+$(ANNOTATION_DATA): $(ANNOTATION_DATA).gz
+	gzip -dc < $< > $@
 
-$(OUTPUT_DIR)/target_files.txt:
-	(cd $(DATA_DIR) && find . -name "*.url") > $@
+# List of files to process
+$(DATA_DIR)/target_files.txt: $(TRANSLATION_DATA)
+	(cd $(TRANSLATION_DATA) && find . -name "*.url") > $@
+
+# Metadata of HTML/XML files
+$(DATA_DIR)/metadata.jsonl: $(DATA_DIR)/target_files.txt
+	python preprocess/metadata.py -d $(TRANSLATION_DATA) $< $@
+
+# Text data extracted from HTML files
+$(DATA_DIR)/textdata.jsonl: $(DATA_DIR)/metadata.jsonl
+	python preprocess/extracttext.py -d $(TRANSLATION_DATA) $< $@
+
+# Text data with class labels
+$(DATA_DIR)/annotations.jsonl: $(DATA_DIR)/textdata.jsonl $(ANNOTATION_DATA)
+	python preprocess/annotations.py $(DATA_DIR)/textdata.jsonl $(ANNOTATION_DATA) $@
+$(DATA_DIR)/annotations-train.jsonl $(DATA_DIR)/annotations-test.jsonl: $(DATA_DIR)/annotations.jsonl
+	python preprocess/datasplit.py --test-size 0.1 $< $(DATA_DIR)/annotations-train.jsonl $(DATA_DIR)/annotations-test.jsonl
 

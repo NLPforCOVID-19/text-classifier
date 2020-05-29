@@ -21,7 +21,11 @@ def extract_url_from_url_file(filepath: pathlib.Path) -> str:
 
 def extract_title_from_html_file(filepath: pathlib.Path) -> str:
     with filepath.open() as f:
-        return bs4.BeautifulSoup(f.read(), "html.parser").title.string
+        title = bs4.BeautifulSoup(f.read(), "html.parser").title
+        if title is None:
+            return ""
+        else:
+            return title.string
 
 
 def extract_timestamp_from_file(filepath: pathlib.Path) -> str:
