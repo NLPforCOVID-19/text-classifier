@@ -83,7 +83,7 @@ def train_mode(args, classes):
     
     # train model
     logger.info("Start training")
-    classifier = init_classifier(features[0].shape[0], len(classes))
+    classifier = init_classifier(train_features[0].shape[0], len(classes))
     classifier.to(args.device)
     # weighting positive instances to deal with imbalanced labels (weight = # negative / # positive)
     pos_weight = torch.tensor([float(num_train - pos) / pos for pos in num_labels]).to(args.device)
@@ -112,7 +112,7 @@ def train_mode(args, classes):
         val_loss = criterion(val_output, val_labels)
         val_probs = torch.sigmoid(val_output)
         prec, rec, fscore, _ = precision_recall_fscore_support(val_labels.cpu(), (val_probs.cpu() > 0.5).to(dtype=float), zero_division=0)
-        acc = ' '.join([f"{cl}={p}/{r}/{f}" for cl, p, r, f in zip(classes, prec, rec, fscore)])
+        acc = ' '.join([f"{cl}={p:.3f}/{r:.3f}/{f:.3f}" for cl, p, r, f in zip(classes, prec, rec, fscore)])
         logger.info(f"val_loss={val_loss} acc: {acc}")
     logger.info("done")
 
@@ -122,7 +122,7 @@ def train_mode(args, classes):
     logger.info("done")
     return
 
-def test_mode(args):
+def test_mode(args, classes):
     """Test mode"""
     logger.info("Test mode")
     
@@ -139,6 +139,8 @@ def test_mode(args):
     # run classifier
     logger.info("Start running")
     classifier = init_classifier(features[0].shape[0], len(classes))
+    classifier.load_state_dict(torch.load(args.model_path))
+    classifier.eval()
     classifier.to(args.device)
     outputs = []  # list of class probabilities
     with torch.no_grad():
