@@ -1,10 +1,5 @@
 # Rules to train/run classifiers
-# classifiers:
-#   - kwclassifier.py: keyword-match classifier (uses keywords.txt)
-#   - bertsimple.py: classifier using BERT features
-# goals:
-#   - test-...: run a classifier on annotations-test.jsonl
-#   - run-...: run a classifier on textdata.jsonl (entire data)
+# See `README.md` for details.
 
 DATA_DIR = ../data
 CLASSES_FILE = classes.txt  # list of classes
