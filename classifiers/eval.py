@@ -40,7 +40,10 @@ if __name__ == "__main__":
     sys.stdout.write("{} classes: {}\n".format(len(classes), ' '.join(classes)))
     precision, recall, fscore, _ = precision_recall_fscore_support(gold_matrix >= 1.0, pred_matrix > args.threshold, zero_division=0)
     average_precision = average_precision_score(gold_matrix >= 1.0, pred_matrix, average=None)
-    sys.stdout.write("Precision/Recall/F-score/Average precision\n")
-    for cl, p, r, f, a in zip(classes, precision, recall, fscore, average_precision):
-        sys.stdout.write(f"{cl}: {p:.3f}/{r:.3f}/{f:.3f}/{a:.3f}\n")
+    sys.stdout.write("\tCorrect/Gold/Prediction\tPrecision/Recall/F-score/Average precision\n")
+    num_gold = (gold_matrix >= 1.0).sum(axis=0)
+    num_pred = (pred_matrix > args.threshold).sum(axis=0)
+    num_correct = numpy.logical_and(gold_matrix >= 1.0, pred_matrix > args.threshold).sum(axis=0)
+    for cl, correct, gold, pred, p, r, f, a in zip(classes, num_correct, num_gold, num_pred, precision, recall, fscore, average_precision):
+        sys.stdout.write(f"{cl}:\t{correct}/{gold}/{pred}\t{p:.3f}/{r:.3f}/{f:.3f}/{a:.3f}\n")
     
