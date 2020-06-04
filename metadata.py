@@ -27,7 +27,7 @@ def extract_title_from_html_file(filepath: pathlib.Path) -> str:
         # For some exceptional domains, try to use the first h1 tag for title.
         if domain in title_h1_domains:
             h1_tags = soup.find_all('h1')
-            if len(h1_tags) > 0:
+            if len(h1_tags) > 0 and h1_tags[0].string is not None:
                 return h1_tags[0].string
         return soup.title.string
 
