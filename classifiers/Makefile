@@ -25,10 +25,10 @@ $(BERT_MODEL):
 BERTSIMPLE_MODEL = bertsimple/classifier.pth
 train-bertsimple: $(DATA_DIR)/annotations-train.jsonl $(CLASSES_FILE) $(BERT_MODEL)
 	mkdir -p $(dir $(BERTSIMPLE_MODEL))
-	python bertsimple.py train --gpu --epoch 100 --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --classes-file $(CLASSES_FILE)
+	python bertsimple.py train --gpu --pos-weight --batch 64 --epoch 100 --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --classes-file $(CLASSES_FILE)
 test-bertsimple: $(DATA_DIR)/annotations-test.jsonl $(BERTSIMPLE_MODEL) $(CLASSES_FILE)
-	python bertsimple.py test --gpu --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --output-file $(DATA_DIR)/annotations-test-bertsimple.jsonl --classes-file $(CLASSES_FILE)
+	python bertsimple.py test --gpu --batch 256 --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --output-file $(DATA_DIR)/annotations-test-bertsimple.jsonl --classes-file $(CLASSES_FILE)
 	python eval.py --gold $(DATA_DIR)/annotations-test.jsonl --pred $(DATA_DIR)/annotations-test-bertsimple.jsonl --classes classes.txt
 run-bertsimple: $(DATA_DIR)/textdata.jsonl $(BERTSIMPLE_MODEL) $(CLASSES_FILE)
-	python bertsimple.py test --gpu --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --output-file $(DATA_DIR)/textdata-bertsimple.jsonl --classes-file $(CLASSES_FILE)
+	python bertsimple.py test --gpu --batch 256 --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --output-file $(DATA_DIR)/textdata-bertsimple.jsonl --classes-file $(CLASSES_FILE)
 
