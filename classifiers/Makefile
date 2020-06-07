@@ -9,6 +9,8 @@ BERT_DIR = bert
 BERT_MODEL = $(BERT_DIR)/Japanese_L-12_H-768_A-12_E-30_BPE_transformers
 BERT_MODEL_URL = http://nlp.ist.i.kyoto-u.ac.jp/nl-resource/JapaneseBertPretrainedModel/Japanese_L-12_H-768_A-12_E-30_BPE_transformers.zip
 
+data: $(BERT_MODEL)
+
 # keyword-matching classifier
 test-kwclassifier: $(DATA_DIR)/annotations-test.jsonl keywords.txt
 	python kwclassifier.py $(DATA_DIR)/annotations-test.jsonl keywords.txt $(DATA_DIR)/annotations-test-kwclassifier.jsonl
