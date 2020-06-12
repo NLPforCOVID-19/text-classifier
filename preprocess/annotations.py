@@ -19,9 +19,10 @@ if __name__ == "__main__":
         for line in lf:
             js = json.loads(line)
             tags = js['tags']
-            topics = tags['topics']
-            del tags['topics']
-            tags.update(topics)
+            if 'topics' in tags:
+                topics = tags['topics']
+                del tags['topics']
+                tags.update(topics)
             labels[js['url']] = tags
     print("Number of labeled data: {}".format(len(labels)))
 
