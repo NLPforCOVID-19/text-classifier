@@ -1,13 +1,16 @@
 DATA_DIR = ./CoronavirusTranslationData20200421
+DATASET_DIR = ./0421
 OUTPUT_DIR = .
 TO_BE_UPLOAD_DIR = ./tbupload
+ANNOTATION_FILE = ./crowdsourcing20200615.processed.jsonl
 
-all: $(OUTPUT_DIR)/output.json
+all: $(DATASET_DIR)/crowdsourcing.train
 cleanall:
 	@echo "Cleaning up..."
 	rm $(OUTPUT_DIR)/output.json
 	rm $(OUTPUT_DIR)/metadata.json
 	rm $(OUTPUT_DIR)/target_files.txt
+	rm -r $(DATASET_DIR)
 cleanfinal:
 	@echo "Cleaning only output.json up..."
 	rm $(OUTPUT_DIR)/output.json
@@ -17,10 +20,13 @@ cleanupload:
 upload:$(OUTPUT_DIR)/uploadlist $(OUTPUT_DIR)/output.json
 	python3 uploader.py
 	make cleanupload
-splitdata:
-	sed -n '1,2440 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.train
-	sed -n '2441,2748 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.dev
-	sed -n '2749,3050 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.test
+$(DATASET_DIR)/crowdsourcing.train: $(OUTPUT_DIR)/output.json
+	python3 preprocessing.py
+	python3 splitdata.py --input $(ANNOTATION_FILE) --output $(DATASET_DIR)
+#	touch $(DATASET_DIR)/finished
+#	sed -n '1,2440 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.train
+#	sed -n '2441,2748 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.dev
+#	sed -n '2749,3050 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.test
 
 $(OUTPUT_DIR)/output.json: $(OUTPUT_DIR)/metadata.json keywords.txt
 	python3 classifier.py -d $(DATA_DIR) $< keywords.txt $@

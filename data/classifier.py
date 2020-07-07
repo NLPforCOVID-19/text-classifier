@@ -20,13 +20,14 @@ def read_keywords(keyword_file):
     return keywords
 
 def inquire_exclude(sent):
-
+    if len(sent) < 3:
+        return True
     keywords = ['すべての結果を表示',
                'その他']
     for keyword in keywords:
         if keyword in sent:
             return True
-    startingKeySymbols = ["＃", "＊", "©", "￥＋", "［","＊", "http"]
+    startingKeySymbols = ["＃", "＊", "©", "￥＋", "［", "＊", "http", "JavaScript", "Yahoo"]
     for keyword in startingKeySymbols:
         if keyword in sent:
             return True
@@ -46,6 +47,7 @@ def to_text(juman, standard_format, target_pos=[]):
         wordlists.append([unicodedata.normalize("NFKC", m.midasi) for m in mlist.mrph_list()])
         rawsentence = text.find("RawString")
         rawsentences.append(rawsentence.text)
+        # print(rawsentences)
     return wordlists, rawsentences
 
 def classify(text, rawtext, keyword_dict):
@@ -90,7 +92,6 @@ if __name__ == "__main__":
             item = json.loads(line)
             page = item["meta"]
             xml_file = page[args.target]["xml_file"]
-            #print(xml_file)
             try:
                 etree = ElementTree.parse(f"{args.directory}/{xml_file}")
                 num_pages += 1
@@ -100,16 +101,24 @@ if __name__ == "__main__":
                 del item
                 continue
             wordlists, rawsentences = to_text(juman, etree, target_pos)
-            rawsentences = list(filter(lambda x: not inquire_exclude(x), rawsentences))
+            # print(wordlists)
+            rawsentences = list(filter(lambda x: not inquire_exclude(x), wordlists))
             cleansentences = []
             slicecontainer = []
             for slice in rawsentences:
-                slicecontainer.append(slice)
-                if slice.endswith("。"):
-                    cleansentences.append("".join(slicecontainer))
-                    slicecontainer = []
+                # print(slice)
+                if slice[-1]=="EOS":
+                    cleansentences.append(slice[:-1])
+                #     cleansentences.append(slicecontainer)
+                #     slicecontainer = []
+                # else:
+                #     slicecontainer.append(slice)
+            # print(cleansentences)
+            # exit(0)
 
-            item["text"] = "\n".join(rawsentences)
+            item["text"] = cleansentences
+            # print(item["text"])
+            # input()
 
             # apply classifier
             classes, snippets = classify(wordlists, rawsentences, keywords)
@@ -120,7 +129,7 @@ if __name__ == "__main__":
                 statistics[clss] += output
 
             # output the results into JSONL file
-            json.dump(item, of, ensure_ascii=False)
+            json.dump(item, of)#, ensure_ascii=False)
             of.write("\n")
 
     logger.info("Pages: %s", num_pages)

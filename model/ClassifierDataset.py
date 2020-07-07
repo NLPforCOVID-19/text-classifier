@@ -58,21 +58,23 @@ class BCDataset(data.Dataset):
         topicIdx = None
         for item in items:
             # print(item)
-            sents = item["text"].split('\n')
+            sents = item["text"]
+            # print(sents)
             for idx in range(len(sents)):
                 # print(sents[idx])
-                sents[idx] = ['[CLS]'] + tokenize(sents[idx])
+                sents[idx] = ['[CLS]'] + sents[idx]
                 # print(sents[idx])
             # sents = [tokenize(sent) for sent in sents]
+            # print(sents)
             sents = [torch.tensor(convertToken2Idx(sent), device = device) for sent in sents]
             docs.append(sents)
-            tag_isRelated.append(torch.tensor([item["tags"]["COVID-19関連"]], dtype=torch.float, device = device))
-            tag_clarity.append(torch.tensor([item["tags"]["clarity"]], dtype=torch.float, device = device))
-            tag_usefulness.append(torch.tensor([item["tags"]["usefulness"]], dtype=torch.float, device = device))
+            tag_isRelated.append(torch.tensor([item["labels"]["COVID-19関連"]], dtype=torch.float, device = device))
+            tag_clarity.append(torch.tensor([item["labels"]["clarity"]], dtype=torch.float, device = device))
+            tag_usefulness.append(torch.tensor([item["labels"]["usefulness"]], dtype=torch.float, device = device))
             if topicIdx is None:
-                topicIdx = list(item["tags"]["topic"].keys())
+                topicIdx = list(item["labels"]["topics"].keys())
             # print(topicIdx)
-            topics.append(torch.tensor([tuple[1]for tuple in item["tags"]["topic"].items()], dtype=torch.float, device = device))
+            topics.append(torch.tensor([tuple[1]/item["cnt"] for tuple in item["labels"]["topics"].items()], dtype=torch.float, device = device))
         return BCDataset(docs, tag_isRelated, tag_clarity, tag_usefulness, topics, topicIdx)
 
 

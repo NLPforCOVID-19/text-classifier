@@ -12,6 +12,15 @@ def parse_args():
     #                     help='directory with GLOVE embeddings')
     parser.add_argument('--bert_path', default='dependencies/bert/L-6_H-768_A-6_E-40_BPE',
                         help='directory where bert model resides')
+    parser.add_argument('--train_bert', dest='train_bert', action='store_true'
+                        , help="whether to train bert model")
+    parser.set_defaults(train_bert=False )
+    parser.add_argument('--use_f1', dest='use_f1', action='store_true'
+                        , help="whether to train bert model")
+    parser.set_defaults(use_f1=False )
+    parser.add_argument('--use_ce', dest='use_ce', action='store_true'
+                        , help="whether to train bert model")
+    parser.set_defaults(use_ce=False )
     parser.add_argument('--expname', type=str, default='BertClassifier',
                         help='Name to identify experiment')
     parser.add_argument('--save', type=str, default='checkpoints',

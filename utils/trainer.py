@@ -25,7 +25,7 @@ class Trainer(object):
         super(Trainer, self).__init__()
         self.hparams = hparams
         self.model = model
-        self.criterion = f1_loss#nn.BCELoss().to(hparams.device)
+        self.criterion = nn.BCELoss().to(hparams.device) if self.hparams.use_ce else f1_loss
         self.criterion_rmse = nn.MSELoss().to(hparams.device)
         self.optimizer = optimizer
         self.device = hparams.device
@@ -38,10 +38,16 @@ class Trainer(object):
         total_loss_ce, total_loss_rmse = 0.0, 0.0
         indices = torch.randperm(len(dataset), dtype=torch.long, device=self.device)
         test_loss_ce, test_loss_rmse = 0.0, 0.0
+        if self.epoch % 2 == 1:
+            self.model.seton_everything()
+            self.model.setoff_composer()
+        else:
+            self.model.seton_everything()
+            self.model.setoff_linear()
         for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
             doc, tags = dataset[indices[idx]]
-            doc = [sent[:64] for sent in doc]
-            doc = doc[:192]
+            # doc = [sent[:64] for sent in doc]
+            doc = doc[:256]
             # doc = doc[:96]
             isRelated, clarity, usefulness, topics = tags
             doc = pad_sequence(doc).transpose(0,1) # padding document
@@ -50,7 +56,7 @@ class Trainer(object):
             # print(result)
             #loss_ce = self.criterion(result_ce, torch.cat((isRelated, topics), dim=0))
             # print(result)
-            loss_ce = self.criterion(result, torch.cat((isRelated, topics, clarity, usefulness), dim=0))
+            loss_ce = self.criterion(result, torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
             #loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
             # loss_ce.requres_grad = True
@@ -92,7 +98,7 @@ class Trainer(object):
                 doc = pad_sequence(doc).transpose(0, 1)  # padding document
                 result = self.model(doc)
                 # loss_ce = self.criterion(result_ce, torch.cat((isRelated, topics), dim=0))
-                loss_ce = self.criterion(result, torch.cat((isRelated, topics, clarity, usefulness), dim=0))
+                loss_ce = self.criterion(result, torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
                 # loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
                 # loss_ce.requres_grad = True
@@ -142,7 +148,7 @@ class Trainer(object):
 
                 results.append(predictions)
 
-                loss_ce = self.criterion(predictions, torch.cat((isRelated, topics, clarity, usefulness), dim=0))
+                loss_ce = self.criterion(predictions, torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
                 # loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
                 # loss_ce.requres_grad = True

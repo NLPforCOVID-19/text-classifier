@@ -79,7 +79,7 @@ def get_tags_from_dataset(dataset):
     for idx in range(len(dataset)):
         doc, tag = dataset[idx]
         isRelated, clarity, usefulness, topics = tag
-        tags.append(torch.cat((isRelated, topics, clarity, usefulness), dim=0))
+        tags.append(torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
     return torch.stack(tags, dim=0)
 
 def compute_precision(pred, target):
@@ -119,7 +119,7 @@ def compute_accuracy(pred, target):
 
 def prt_metric(y_pred, y_true):
     y_pred = torch.round(y_pred)
-    print(y_true, y_pred)
+    # print(y_true, y_pred)
     tp = torch.sum(y_true*y_pred, dim=0)
     tn = torch.sum((1-y_true)*(1-y_pred), dim=0)
     fp = torch.sum((1-y_true)*y_pred, dim=0)
