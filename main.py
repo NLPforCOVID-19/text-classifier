@@ -10,7 +10,7 @@ import torch.optim as optim
 #
 from utils import HParams, DetVocab, parse_args, Trainer, print_evals, get_tags_from_dataset
 
-from model import BertClassifier, BCDataset, JumanAnalyzer
+from model import BertMinMax, BertRNN, BCDataset
 
 
 
@@ -21,7 +21,7 @@ def main():
     args = parse_args()
     hparams.set_from_args(args)
 
-    print(hparams.batchsize)
+    # print(hparams.batchsize)
     # setting up logger
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -57,7 +57,7 @@ def main():
     random.seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-        torch.backends.cudnn.benchmark = True
+        # torch.backends.cudnn.benchmark = True
     if not os.path.exists(args.save):
         os.makedirs(args.save)
 
@@ -67,8 +67,16 @@ def main():
 
     #Initialize BERT model (as it includes Jumanpp analyzer)
 
-    jumanpp = JumanAnalyzer()
-    model = BertClassifier(args.bert_path, classes_vocab.size(), hparams)
+    # jumanpp = JumanAnalyzer()
+    if args.bertrnn:
+        model = BertRNN(args.bert_path, classes_vocab.size(), hparams,
+                               langs=['de', 'ja', 'fa', 'it', 'pt', 'es', 'fr', 'en', 'vi', 'zh-cn', 'ru', 'ar', 'ko'])
+    else:
+        model = BertMinMax(args.bert_path, classes_vocab.size(), hparams,
+                           langs = ['de', 'ja', 'fa', 'it', 'pt', 'es', 'fr', 'en', 'vi', 'zh-cn', 'ru', 'ar', 'ko'])
+    if not args.finetuning:
+        model.setoff_bert()
+    # print(model.tokenizer.cls_token_id)
 
     # dataset loading
     train_json = os.path.join(args.data, 'crowdsourcing.train')
@@ -79,7 +87,7 @@ def main():
     if os.path.isfile(train_file):
         train_dataset = torch.load(train_file)
     else:
-        train_dataset = BCDataset.loadData(train_json, jumanpp.tokenize, model.token2id, device)
+        train_dataset = BCDataset.loadData(train_json, model.tokenize, model.token2id, device)
         # print(train_dataset[0])
         torch.save(train_dataset, train_file)
     logger.debug('==> Size of train data:{}'.format(len(train_dataset)))
@@ -89,7 +97,7 @@ def main():
     if os.path.isfile(dev_file):
         dev_dataset = torch.load(dev_file)
     else:
-        dev_dataset = BCDataset.loadData(dev_json, jumanpp.tokenize, model.token2id, device)
+        dev_dataset = BCDataset.loadData(dev_json, model.tokenize, model.token2id, device)
         torch.save(dev_dataset, dev_file)
     logger.debug('==> Size of dev data:{}'.format(len(dev_dataset)))
     # dev_dataset.moveto(hparams.device)
@@ -98,14 +106,15 @@ def main():
     if os.path.isfile(test_file):
         test_dataset = torch.load(test_file)
     else:
-        test_dataset = BCDataset.loadData(test_json, jumanpp.tokenize, model.token2id, device)
+        test_dataset = BCDataset.loadData(test_json, model.tokenize, model.token2id, device)
         torch.save(test_dataset, test_file)
     logger.debug('==> Size of test data:{}'.format(len(test_dataset)))
-
+    # print(train_dataset.get_langs())
+    # exit()
     criterion = nn.NLLLoss()
     model.to(hparams.device), criterion.to(hparams.device)
     if args.optim == 'adam':
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad,
+        optimizer = optim.AdamW(filter(lambda p: p.requires_grad,
                                       model.parameters()), lr=args.lr, weight_decay=args.wd)
     elif args.optim == 'adagrad':
         optimizer = optim.Adagrad(filter(lambda p: p.requires_grad,
@@ -116,6 +125,8 @@ def main():
 
     trainer = Trainer(hparams, model, criterion, optimizer)
     model_file = os.path.join(args.save, args.expname)
+    # print(model.parameters())
+    # exit()
 
 
     best = float('inf')
@@ -128,6 +139,7 @@ def main():
         logger.info('==> Epoch {}, Dev \tLoss: {} '.format(epoch, dev_loss))
         results = trainer.test(test_dataset)
         print_evals(results, get_tags_from_dataset(test_dataset), logger)
+        trainer.epoch+=1
         # train_metrics = trainer.test(train_dataset)
 
 

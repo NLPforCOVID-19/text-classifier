@@ -1,3 +1,4 @@
+import re
 from copy import deepcopy
 
 import torch
@@ -24,57 +25,51 @@ class SimpleVocab(object):
 
 
 class BCDataset(data.Dataset):
-    def __init__(self, docs, tag_isRelated, tag_clarity, tag_usefulness, topics, topicIdx):
+    def __init__(self, docs, tags, doc_langs):
         super(BCDataset, self).__init__()
         self.docs = docs
-        self.tag_isRelated = tag_isRelated
-        self.tag_clarity = tag_clarity
-        self.tag_usefulness = tag_usefulness
-        self.topics = topics
-        self.topicIdx = topicIdx
-        # print(topicIdx)
+        self.tags = tags
         self.size = len(docs)
+        self.doc_langs = doc_langs
     def __len__(self):
         return self.size
-    def __getitem__(self, index):
-        doc = deepcopy(self.docs[index])
-        isRelated = deepcopy(self.tag_isRelated[index])
-        clarity = deepcopy(self.tag_clarity[index])
-        usefulness = deepcopy(self.tag_usefulness[index])
-        topics = deepcopy(self.topics[index])
-        return doc, (isRelated, clarity, usefulness, topics)
-    def getTopicIdx(self):
-        return self.topicIdx
+    def __getitem__(self, index): #Assuming the input index is a group
+        if not isinstance(index, list):
+            doc = deepcopy(self.docs[index])
+            tag = deepcopy(self.tags[index])
+            lang = deepcopy(self.doc_langs[index])
+        else:
+            doc = [deepcopy(self.docs[id]) for id in index]
+            tag = deepcopy(self.tags[index])
+        return doc, tag, lang
+    def get_langs(self):
+        return set(self.doc_langs)
     @staticmethod
     def loadData(file, tokenize, convertToken2Idx, device):
-        with open(file) as f:
+        with open(file, encoding='utf-8') as f:
             items = f.readlines()
             items = [json.loads(item) for item in items]
         docs = []
-        tag_isRelated = []
-        tag_clarity = []
-        tag_usefulness = []
-        topics = []
-        topicIdx = None
+        doc_langs = []
+        tags = []
         for item in items:
             # print(item)
-            sents = item["text"]
-            # print(sents)
-            for idx in range(len(sents)):
-                # print(sents[idx])
-                sents[idx] = ['[CLS]'] + sents[idx]
-                # print(sents[idx])
-            # sents = [tokenize(sent) for sent in sents]
-            # print(sents)
-            sents = [torch.tensor(convertToken2Idx(sent), device = device) for sent in sents]
+            sents = item["cleaned_text"]
+            sents = re.split('; |\*|\n|\. |。',sents)
+            sents = [tokenize(item["title"])] + [tokenize(x.strip('\n')) for x in sents]
+            sents = list(filter(lambda x: len(x) > 5, sents))
+            sents = [x[:128] for x in sents]
+            sents = [torch.tensor(convertToken2Idx(['CLS'] + x + ['SEP']), dtype=torch.long, device = device) for x in sents]
+
+            if len(sents) == 0:
+                continue
             docs.append(sents)
-            tag_isRelated.append(torch.tensor([item["labels"]["COVID-19関連"]], dtype=torch.float, device = device))
-            tag_clarity.append(torch.tensor([item["labels"]["clarity"]], dtype=torch.float, device = device))
-            tag_usefulness.append(torch.tensor([item["labels"]["usefulness"]], dtype=torch.float, device = device))
-            if topicIdx is None:
-                topicIdx = list(item["labels"]["topics"].keys())
-            # print(topicIdx)
-            topics.append(torch.tensor([tuple[1]/item["cnt"] for tuple in item["labels"]["topics"].items()], dtype=torch.float, device = device))
-        return BCDataset(docs, tag_isRelated, tag_clarity, tag_usefulness, topics, topicIdx)
+            doc_langs.append(item["lang"])
+            tag = ([item["tags"]["is_about_COVID-19"]]+ [min(1, item["tags"]["is_useful"])]+
+                                       [item["tags"]["is_clear"]]+ [item["tags"]["is_about_false_rumor"]]+
+                                       [tuple[1] for tuple in item["tags"]["topics"].items()])
+            tags.append(torch.tensor(tag, dtype=torch.float, device = device))
+
+        return BCDataset(docs, tags, doc_langs)
 
 

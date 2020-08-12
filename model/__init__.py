@@ -1,4 +1,4 @@
-from .classifiers import  BertClassifier, JumanAnalyzer
+from .classifiers import  BertMinMax, BertRNN
 from .ClassifierDataset import BCDataset
 
-__all__ = [BertClassifier, BCDataset, JumanAnalyzer]
+__all__ = [BertMinMax, BertRNN, BCDataset]

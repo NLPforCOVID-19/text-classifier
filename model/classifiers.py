@@ -1,7 +1,7 @@
 from pyknp import Juman
 from torch import nn
 import torch
-from transformers import BertModel, BertTokenizer
+from transformers import BertModel, BertTokenizer, DistilBertModel, DistilBertTokenizer, BertForSequenceClassification
 
 from model.peripheral import Attn, AttnType
 
@@ -15,15 +15,17 @@ class RNNComposer(SentenceComposer):
         self.bidirectionality = bidirectionality
         self.hidden = hidden
         self.init_hidden_vector = [torch.nn.Parameter(torch.zeros(1, 1, hidden, device = hparam.device)) ] *2
-        self.composer = nn.GRU(input, hidden, num_layers=1, bidirectional=bidirectionality)
+        self.init_memory_vector = [torch.nn.Parameter(torch.zeros(1, 1, hidden, device = hparam.device))] * 2
+        self.composer = nn.LSTM(input, hidden, num_layers=1, bidirectional=bidirectionality)
         self.composer.to(hparam.device)
     def init_hidden(self, batch_size):
-        return torch.cat(self.init_hidden_vector, dim=0) #if self.bidirectionality else self.init_hidden_vector[0]
+        return (torch.cat(self.init_hidden_vector, dim=0), torch.cat(self.init_memory_vector, dim=0) )#if self.bidirectionality else self.init_hidden_vector[0]
     def forward(self, sentences):
         # Consider input (sentences) has form of (V,B,H)
+
         init_hidden = self.init_hidden(sentences.size(1))
-        _, doc = self.composer(sentences, init_hidden)
-        return doc
+        _, doc = self.composer(sentences.unsqueeze(1), init_hidden)
+        return doc[0][0,0,:]
 class CNNComposer(SentenceComposer):
     def __init__(self, hidden, input, hparam):
         super(CNNComposer, self).__init__()
@@ -50,8 +52,8 @@ class BaseClassifier(nn.Module):
         self.sentence_extractor = None
         self.doc_extractor = None
         self.classifier = None
-    def forward(self, input_ids):
-        pass
+    # def forward(self, input_ids, masking):
+    #     pass
 
 class JumanAnalyzer(object):
     def __init__(self):
@@ -60,115 +62,109 @@ class JumanAnalyzer(object):
         # print(sentence)
         result = self.jumanpp.analysis(sentence)
         return [item.midasi for item in result.mrph_list()]
-class BertClassifier(BaseClassifier):
-    def __init__(self, path_to_bert, classes, hparam):
-        super(BertClassifier, self).__init__()
+class BertMinMax(BaseClassifier):
+    def __init__(self, path_to_bert, classes, hparam, langs):
+        super(BertMinMax, self).__init__()
         self.hparams = hparam
         self.init_bert(path_to_bert, hparam.logger, hparam.device)
         # self.composer =
-        self.composer = [RNNComposer(hparam=hparam, hidden=768, input=768, bidirectionality=True).to(hparam.device) for _ in range(4)]
+        # self.composer = RNNComposer(hparam=hparam, hidden=768, input=768, bidirectionality=True).to(hparam.device)
         # self.mixer = nn.Linear(768, 300)
-        self.mixer_rnn = [nn.Linear(768*2,768).to(hparam.device) for _ in range(4)]
-        self.labels = nn.Linear(768, 1)  # Assuming BERT-BASE is used
-        self.is_related = nn.Linear(768, 1)
-        self.usefulness = nn.Linear(768, 1)
-        self.clarity = nn.Linear(768, 1)
-        self.attn = [Attn(AttnType.general, 768, 768).to(hparam.device) for _ in range(4)]
-    def setoff_composer(self):
-        for composer in self.composer:
-            for param in composer.composer.parameters():
-                param.requires_grad=False
-    def setoff_linear(self):
-        for param in self.labels.parameters():
-            param.requires_grad=False
-        for param in self.usefulness.parameters():
-            param.requires_grad=False
-        for param in self.clarity.parameters():
-            param.requires_grad=False
-        for param in self.is_related.parameters():
-            param.requires_grad=False
-        for attn in self.attn:
-            for param in attn.fh.parameters():
-                param.requires_grad = False
-    def seton_everything(self):
-        for composer in self.composer:
-            for param in composer.composer.parameters():
-                param.requires_grad=True
-        for param in self.labels.parameters():
-            param.requires_grad=True
-        for param in self.usefulness.parameters():
-            param.requires_grad=True
-        for param in self.clarity.parameters():
-            param.requires_grad=True
-        for param in self.is_related.parameters():
-            param.requires_grad=True
-        for attn in self.attn:
-            for param in attn.fh.parameters():
-                param.requires_grad = True
-
-
+        # self.mixer_rnn = nn.Linear(768*2,768).to(hparam.device)
+        self.label = nn.ModuleDict({lang: nn.Linear(768*2, 12) for lang in langs})  #     Assuming BERT-BASE is used
+        # for lang in self.label.keys():
+        #     self.label[lang].to(hparam.device)
     def init_bert(self, path_to_bert, logger, device):
-        self.model = BertModel.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
-        self.tokenizer = BertTokenizer.from_pretrained(path_to_bert, cache_dir=None, from_tf=False, state_dict=None)
+        self.model = BertModel.from_pretrained(path_to_bert)
+        # self.model = BertForSequenceClassification.from_pretrained(path_to_bert)
+        self.tokenizer = BertTokenizer.from_pretrained(path_to_bert)
         logger.info("Bert Model loaded")
         if not self.hparams.train_bert:
             for name, param in self.model.named_parameters():
-                param.requires_grad = False
-                # if name.startswith('embeddings'):
-                #     param.requires_grad = False
-    def forward(self, input_ids):
-
-        #input_ids should be organized as (V, ids), ids only contains one sentence -> which means only one document at a time
-        cnt = 0
-        last_hiddens = []
-        doc_len = input_ids.size(0)
-
-        # print(input_ids)
-# /
-
-        last_hidden = self.model(input_ids)[0]
-        output_hidden = [None for _ in range(4)]
-        doc_representation = [None for _ in range(4)]
-        for i in range(4):
-            output_hidden[i] = self.composer[i](last_hidden[:, 0, :].unsqueeze(1))
-            output_hidden[i] = torch.cat((output_hidden[i][0], output_hidden[i][1]), dim=1)
-            # print(output_hidden[i].size())
-
-            doc_representation[i] = self.attn[i](self.mixer_rnn[i](output_hidden[i].view(-1)), last_hidden[:, 0, :])
-
-
-        # output_hidden_relateness = self.composer[i](last_hidden[:, 0, :].unsqueeze(1))  #B,V,H
-        # output_hidden_clearness = self.composer(last_hidden[:, 0, :].unsqueeze(1))
-        # output_hidden_clearness = self.composer(last_hidden[:, 0, :].unsqueeze(1))
-        # output_hidden_other = self.composer(last_hidden[:, 0, :].unsqueeze(1))
-
-
-            # print(torch.cat((output_hidden[0], output_hidden[1]), dim=1))
-
-            # print(last_hidden)
-
-
-
-        # doc_representation = self.mixer(doc_representation)
-
-
-
-        is_related = self.is_related(doc_representation[0])
-        is_related_score = torch.sigmoid(is_related)
-
-        clarity = self.clarity(doc_representation[1])
-        clarity_score = torch.sigmoid(clarity)
-
-        usefulness = self.usefulness(doc_representation[2])
-        usefulness_score = torch.sigmoid(usefulness)
-
-        topics = self.labels(doc_representation[3])
+                # param.requires_grad = False
+                if name.startswith('embeddings'):
+                    param.requires_grad = False
+    def forward(self, input_ids, masking, lang):
+        if not self.hparams.finetuning:
+            cnt = 0
+            last_hiddens = []
+            while cnt< input_ids.size(0):
+                last_hiddens = self.model(input_ids[cnt:cnt+25], masking[cnt:cnt+25])[0][:, 0, :]
+                cnt+=25
+            last_hiddens = torch.cat(last_hiddens, dim=0)
+        else:
+            last_hiddens = self.model(input_ids, masking)[0][:, 0, :]
+        doc_representation = torch.cat([torch.mean(last_hiddens, dim=0), torch.max(last_hiddens, dim=0)[0]], dim=0)
+        if self.hparams.decoder_sharing:
+            topics = self.label[list(self.label.keys())[0]](doc_representation)
+        else:
+            topics = self.label[lang](doc_representation)
         topics_score = torch.sigmoid(topics)
 
-        return torch.cat((is_related_score,  topics_score, clarity_score, usefulness_score), dim=0)#, torch.cat((clarity_score, usefulness_score), dim=0)
+        return topics_score
+    def setoff_bert(self):
+        if not self.hparams.train_bert:
+            for name, param in self.model.named_parameters():
+                param.requires_grad = False
+                if name.startswith('embeddings'):
+                    param.requires_grad = False
+    def token2id(self, tokens):
+        return self.tokenizer.convert_tokens_to_ids(tokens=tokens)
+    def id2token(self, ids):
+        return self.tokenizer.convert_ids_to_tokens(ids)
+
+    def tokenize(self, sent):
+        return self.tokenizer.tokenize(sent)
+
+class BertRNN(BaseClassifier):
+    def __init__(self, path_to_bert, classes, hparam, langs):
+        super(BertRNN, self).__init__()
+        self.hparams = hparam
+        self.init_bert(path_to_bert, hparam.logger, hparam.device)
+        # self.composer =
+        # self.composer = RNNComposer(hparam=hparam, hidden=768, input=768, bidirectionality=True).to(hparam.device)
+        # self.mixer = nn.Linear(768, 300)
+        self.mixer_rnn = nn.ModuleDict({lang: RNNComposer(hparam=hparam, hidden=768, input=768, bidirectionality=True).to(hparam.device) for lang in langs})
+        self.label = nn.ModuleDict({lang: nn.Linear(768, 12) for lang in langs})
+            # {lang: nn.Linear(768, 12) for lang in langs}  #     Assuming BERT-BASE is used
+        # for lang in self.label.keys():
+        #     self.label[lang].to(hparam.device)
+    def init_bert(self, path_to_bert, logger, device):
+        if "distil" in path_to_bert:
+            self.model = DistilBertModel.from_pretrained(path_to_bert)
+            self.tokenizer = DistilBertModel.from_pretrained(path_to_bert)
+        else:
+            self.model = BertModel.from_pretrained(path_to_bert)
+            # self.model = BertForSequenceClassification.from_pretrained(path_to_bert)
+            self.tokenizer = BertTokenizer.from_pretrained(path_to_bert)
+        logger.info("Bert Model loaded")
+    def setoff_bert(self):
+        if not self.hparams.train_bert:
+            for name, param in self.model.named_parameters():
+                param.requires_grad = False
+                if name.startswith('embeddings'):
+                    param.requires_grad = False
+    def forward(self, input_ids, masking, lang):
+        if not self.hparams.finetuning:
+            cnt = 0
+            last_hiddens = []
+            while cnt < input_ids.size(0):
+                last_hiddens.append(self.model(input_ids[cnt:cnt + 100], masking[cnt:cnt + 100])[0][:, 0, :])
+                cnt += 100
+            last_hiddens = torch.cat(last_hiddens, dim=0)
+        else:
+            last_hiddens = self.model(input_ids, masking)[0][:, 0, :]
+        if self.hparams.decoder_sharing:
+            doc_representation = torch.cat([self.mixer_rnn[0](last_hiddens)], dim=0)
+            topics = self.label[list(self.label.keys())[0]](doc_representation)
+        else:
+            doc_representation = torch.cat([self.mixer_rnn[lang](last_hiddens)], dim=0)
+            topics = self.label[lang](doc_representation)
+        topics_score = torch.sigmoid(topics)
+
+        return topics_score
 
     def token2id(self, tokens):
-        # Input tokens are a list of token
         return self.tokenizer.convert_tokens_to_ids(tokens=tokens)
     def id2token(self, ids):
         return self.tokenizer.convert_ids_to_tokens(ids)
