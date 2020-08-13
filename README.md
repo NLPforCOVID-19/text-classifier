@@ -4,18 +4,13 @@
 
 - To run this code, pytorch 1.3.0 and transformer 2.5.0 is recommended
 
-## Preparing Model
-
-- Put pretrained BERT under `dependencies/bert/<Model of your choice>`
-
 ## Preparing data
 
-- Put `CoronavirusTranslationData20200421` and `crowdsourcing20200420.jsonl` in data folder
-
-- Run `make all` on data folder containing `CoronavirusTranslationData20200421` and `crowdsourcing20200420.processed.jsonl`, which will produce `output.json`
-- Run preprocess.py on root directory which will produce `crowdsourcing20200420.processed.jsonl`
-- Run `make splitdata` on data folder to generate `data/0421` which is needed for run the model
-
+- Make sure you have `crowdsourcing<Date>.jsonl` in `data/Multilingual` folder
+- Run `make all` 
+    - `Extract` target will produce `annotation.json` which contains both annotation and crawled text
+    - `Partition` target will partition data in `annotation.json` into train/dev/test sets randomly
+    - To save time, you may run `Make Partition` using the existing `annotation.json`
 ## Run BERT model
 
-- run `Make BERT` on root directory
+- run `make <experiment target>` on root directory with the experiment configuration of your choice
