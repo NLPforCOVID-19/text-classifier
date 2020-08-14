@@ -25,12 +25,13 @@ class SimpleVocab(object):
 
 
 class BCDataset(data.Dataset):
-    def __init__(self, docs, tags, doc_langs):
+    def __init__(self, docs, tags, doc_langs, pos_weight):
         super(BCDataset, self).__init__()
         self.docs = docs
         self.tags = tags
         self.size = len(docs)
         self.doc_langs = doc_langs
+        self.pos_weight=pos_weight
     def __len__(self):
         return self.size
     def __getitem__(self, index): #Assuming the input index is a group
@@ -52,6 +53,7 @@ class BCDataset(data.Dataset):
         docs = []
         doc_langs = []
         tags = []
+        pos_count = torch.zeros(12, dtype = torch.float, device=device)
         for item in items:
             # print(item)
             sents = item["cleaned_text"]
@@ -68,8 +70,11 @@ class BCDataset(data.Dataset):
             tag = ([item["tags"]["is_about_COVID-19"]]+ [min(1, item["tags"]["is_useful"])]+
                                        [item["tags"]["is_clear"]]+ [item["tags"]["is_about_false_rumor"]]+
                                        [tuple[1] for tuple in item["tags"]["topics"].items()])
-            tags.append(torch.tensor(tag, dtype=torch.float, device = device))
+            tag = torch.tensor(tag, dtype=torch.float, device = device)
+            tags.append(tag)
+            pos_count+=tag
 
-        return BCDataset(docs, tags, doc_langs)
+        pos_weight = (torch.ones(12, dtype=torch.long, device=device)*len(tags) - pos_count)/pos_count
+        return BCDataset(docs, tags, doc_langs, pos_weight)
 
 

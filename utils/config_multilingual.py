@@ -29,7 +29,10 @@ def parse_args():
                         help='path to checkpoints')
     parser.add_argument('--bertrnn', dest='bertrnn', action='store_true'
                         , help="Use RNN as mixer")
-    
+    parser.add_argument('--article_level', dest='article_level', action='store_true'
+                        , help="Whether to train it as a complete article")
+    parser.add_argument('--article_len', type=int, default=512,
+                        help='Maximum article length on AT mode')
     # model arguments
     parser.add_argument('--input_dim', default=300, type=int,
                         help='Size of input word vector')

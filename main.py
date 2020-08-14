@@ -11,7 +11,7 @@ import torch.optim as optim
 from utils import HParams, DetVocab, parse_args, Trainer, print_evals, get_tags_from_dataset
 
 from model import BertMinMax, BertRNN, BCDataset
-
+from utils.trainer import SentenceTrainer, ArticleTrainer
 
 
 def main():
@@ -123,7 +123,10 @@ def main():
         optimizer = optim.SGD(filter(lambda p: p.requires_grad,
                                      model.parameters()), lr=args.lr, weight_decay=args.wd)
 
-    trainer = Trainer(hparams, model, criterion, optimizer)
+    if args.article_level:
+        trainer = ArticleTrainer(hparams, model, criterion, optimizer)
+    else:
+        trainer = SentenceTrainer(hparams, model, criterion, optimizer)
     model_file = os.path.join(args.save, args.expname)
     # print(model.parameters())
     # exit()

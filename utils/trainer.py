@@ -39,10 +39,8 @@ def sampling(doc: List[List[str]], sample_size: int, device, finetuning: bool):
     masking = torch.tensor([[0 if id < doc_lens[x] else 1 for id in range(doc_samples.size(1))] for x in range(doc_samples.size(0))], device=device)
     return doc_samples, masking
     pass
-
 class Trainer(object):
     def __init__(self, hparams, model, criterion, optimizer):
-        super(Trainer, self).__init__()
         self.hparams = hparams
         self.model = model
         self.criterion = nn.BCELoss().to(hparams.device) if self.hparams.use_ce else f1_loss
@@ -51,6 +49,10 @@ class Trainer(object):
         self.device = hparams.device
         self.epoch = 0
         self.teacher_forcing_ratio = 0.5
+class SentenceTrainer(Trainer):
+    def __init__(self, hparams, model, criterion, optimizer):
+        super(SentenceTrainer, self).__init__()
+
     def train(self, dataset, mode=TrainMode.Train):
         if mode == TrainMode.Train:
             self.model.train()
@@ -58,9 +60,11 @@ class Trainer(object):
         total_loss_ce, total_loss_rmse = 0.0, 0.0
         indices = torch.randperm(len(dataset), dtype=torch.long, device=self.device)
         test_loss_ce, test_loss_rmse = 0.0, 0.0
-
+        self.criterion = nn.BCELoss(weight=dataset.pos_weight).to(self.device) if self.hparams.use_ce else f1_loss
         for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
+
             doc, tags, lang = dataset[indices[idx]]
+
             for _ in range(self.hparams.sample_count if self.hparams.finetuning else 1):
                 doc_sample, masking = sampling(doc, self.hparams.sample_size, self.device, self.hparams.finetuning)
                 # print(doc_sample.size())
@@ -81,6 +85,7 @@ class Trainer(object):
 
     def eval(self, dataset):
         self.model.eval()
+        # self.criterion = nn.BCELoss(weight=dataset.pos_weight).to(self.device) if self.hparams.use_ce else f1_loss
         with torch.no_grad():
             total_loss_ce, total_loss_rmse = 0.0, 0.0
             test_loss_ce, test_loss_rmse = 0.0, 0.0
@@ -114,4 +119,102 @@ class Trainer(object):
                     doc_sample, masking = sampling(doc, self.hparams.sample_size, self.device, self.hparams.finetuning)
                     predictions = self.model(doc_sample.type(torch.long), masking, lang)
                     results.append(predictions)
+        return torch.stack(results, dim=0)
+class ArticleTrainer(Trainer):
+    def __init__(self, hparams, model, criterion, optimizer):
+        super(Trainer, self).__init__()
+        self.hparams = hparams
+        self.model = model
+        self.criterion = nn.BCELoss().to(hparams.device) if self.hparams.use_ce else f1_loss
+        self.criterion_rmse = nn.MSELoss().to(hparams.device)
+        self.optimizer = optimizer
+        self.device = hparams.device
+        self.epoch = 0
+        self.teacher_forcing_ratio = 0.5
+    def train(self, dataset, mode=TrainMode.Train):
+        if mode == TrainMode.Train:
+            self.model.train()
+            self.optimizer.zero_grad()
+        total_loss_ce, total_loss_rmse = 0.0, 0.0
+        indices = torch.randperm(len(dataset), dtype=torch.long, device=self.device)
+        test_loss_ce, test_loss_rmse = 0.0, 0.0
+        self.criterion = nn.BCELoss(weight=dataset.pos_weight).to(self.device) if self.hparams.use_ce else f1_loss
+        for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
+            doc, tags, lang = dataset[indices[idx]]
+            article = []
+            cnt=0
+            while len(article) < self.hparams.article_len and cnt< len(doc):
+                # if len(doc[cnt]) < 3:
+                #     continue
+                # print(doc[cnt][1:-1].tolist())
+                article += doc[cnt][1:-1].tolist()
+                cnt+=1
+            article = [self.model.tokenizer.cls_token_id] + article + [self.model.tokenizer.sep_token_id]
+            # print(article)
+            article = torch.tensor(article, device=self.device)
+            # print(article.size())
+            result = self.model(article.unsqueeze(0), None, lang)
+            loss_ce = self.criterion(result, tags)
+            total_loss_ce += loss_ce.item()
+            test_loss_ce += loss_ce.item()
+            loss_ce.backward()
+            if (idx + 1) % self.hparams.batchsize == 0:  # pesudo minibatch
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            if (idx + 1) % self.hparams.error_report == 0:
+                self.hparams.logger.info(
+                    'Epoch {}, Batch {} : Avg CE Loss {}'.format(self.epoch, idx, test_loss_ce / (
+                                self.hparams.error_report)))
+                test_loss_ce = 0
+        return (total_loss_rmse+total_loss_ce) / len(dataset)
+
+    def eval(self, dataset):
+        self.model.eval()
+        # self.criterion = nn.BCELoss(weight=dataset.pos_weight).to(self.device) if self.hparams.use_ce else f1_loss
+        with torch.no_grad():
+            total_loss_ce, total_loss_rmse = 0.0, 0.0
+            test_loss_ce, test_loss_rmse = 0.0, 0.0
+            for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
+                doc, tags, lang = dataset[idx]
+                article = []
+                cnt = 0
+                while len(article) < self.hparams.article_len and cnt < len(doc):
+                    # if len(doc[cnt]) < 3:
+                    #     continue
+                    article += doc[cnt][1:-1].tolist()
+                    cnt += 1
+                article = [self.model.tokenizer.cls_token_id] + article + [self.model.tokenizer.sep_token_id]
+
+                article = torch.tensor(article, device=self.device)
+                result = self.model(article.unsqueeze(0), None, lang)
+                loss_ce = self.criterion(result, tags)
+                total_loss_ce += loss_ce.item()
+                test_loss_ce += loss_ce.item()
+                if (idx + 1) % self.hparams.error_report == 0:
+                    self.hparams.logger.info(
+                        'Epoch {}, Batch {} : Avg CE Loss {}'.format(self.epoch, idx,
+                                                                     test_loss_ce / (
+                                                                                  self.hparams.error_report)))
+                    test_loss_ce = 0
+        return (total_loss_rmse+total_loss_ce) / len(dataset)
+
+    # helper function for testing
+    def test(self, dataset):
+        self.model.eval()
+        with torch.no_grad():
+            results = []
+            for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
+                doc, tags, lang = dataset[idx]
+                article = []
+                cnt = 0
+                while len(article) < self.hparams.article_len and cnt < len(doc):
+                    # if len(doc[cnt]) < 3:
+                    #     continue
+                    article += doc[cnt][1:-1].tolist()
+                    cnt += 1
+                article = [self.model.tokenizer.cls_token_id] + article + [self.model.tokenizer.sep_token_id]
+
+                article = torch.tensor(article, device=self.device)
+                predictions = self.model(article.unsqueeze(0), None, lang)
+                results.append(predictions)
         return torch.stack(results, dim=0)

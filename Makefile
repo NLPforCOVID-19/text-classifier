@@ -9,6 +9,8 @@ BERT_MD:
 BERT_MD_RNN:
 	CUDA_VISIBLE_DEVICES=3 python main.py --bert_path "bert-base-multilingual-cased" --expname "rnn_mixer_decoder_per_lang" --bertrnn --finetuning --use_ce --epochs $(EPOCH)  --sample_size 32 --sample_count 8
 BERT_MD_RNN_NONFT:
-	CUDA_VISIBLE_DEVICES=1 python main.py --bert_path "bert-base-multilingual-cased" --expname "rnn_mixer_decoder_per_lang_nonfinetuning" --bertrnn --use_ce --epochs $(EPOCH)
+	CUDA_VISIBLE_DEVICES=1 python main.py --bert_path "bert-base-multilingual-cased" --expname "rnn_mixer_decoder_per_lang_nonfinetuning" --bertrnn --use_ce --epochs 200
 BERT_SD:
 	CUDA_VISIBLE_DEVICES=1 python main.py --bert_path $(BERT_MODEL_PATH) --use_ce --expname "decoder_for_all_lang" --epochs $(EPOCH) --decoder_sharing
+BERT_MD_AT:
+	CUDA_VISIBLE_DEVICES=2 python main.py --bert_path "bert-base-multilingual-cased" --expname "decoder_per_lang" --article_level --use_ce --finetuning --epochs $(EPOCH) --article_len 256
