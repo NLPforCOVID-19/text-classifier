@@ -18,10 +18,15 @@ def parse_args():
     parser.add_argument('--use_f1', dest='use_f1', action='store_true'
                         , help="whether to train bert model")
     parser.set_defaults(use_f1=False )
+    parser.add_argument('--combine_xr', dest='combine_xr', action='store_true'
+                        , help="combine with expected recall")
+    parser.set_defaults(use_f1=False)
     parser.add_argument('--use_ce', dest='use_ce', action='store_true'
                         , help="whether to train bert model")
     parser.set_defaults(use_ce=False )
     parser.add_argument('--expname', type=str, default='BertClassifier',
+                        help='Name to identify experiment')
+    parser.add_argument('--expdir', type=str, default='/home/christopher/experiments/covid/',
                         help='Name to identify experiment')
     parser.add_argument('--save', type=str, default='checkpoints',
                         help='path to checkpoints')
@@ -29,9 +34,15 @@ def parse_args():
                         help='path to checkpoints')
     parser.add_argument('--bertrnn', dest='bertrnn', action='store_true'
                         , help="Use RNN as mixer")
+    parser.add_argument('--train_by_chunk', dest='train_by_chunk', action='store_true'
+                        , help="Whether to use chunking")
     parser.add_argument('--article_level', dest='article_level', action='store_true'
                         , help="Whether to train it as a complete article")
     parser.add_argument('--article_len', type=int, default=512,
+                        help='Maximum article length on AT mode')
+    parser.add_argument('--chunk_len_limit', type=int, default=256,
+                        help='Maximum article length on AT mode')
+    parser.add_argument('--context_size', type=int, default=30,
                         help='Maximum article length on AT mode')
     # model arguments
     parser.add_argument('--input_dim', default=300, type=int,
@@ -60,7 +71,7 @@ def parse_args():
                         help='Size of input word vector')
     parser.add_argument('--sample_size', default=48, type=int,
                         help='Size of input word vector')
-    parser.add_argument('--error_report', default=250, type=int,
+    parser.add_argument('--error_report', default=1000, type=int,
                         help='Size of input word vector')
     parser.add_argument('--sparse', action='store_true',
                         help='Enable sparsity for embeddings, \

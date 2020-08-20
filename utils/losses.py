@@ -22,7 +22,7 @@ def stochastic_recall(pred, target):
             total += 1
             hit += y_pred
     print("recall", hit, total)
-    return hit/total
+    return -hit/total
 
 
 def f1_loss(y_pred, y_true):
@@ -38,5 +38,18 @@ def f1_loss(y_pred, y_true):
     # f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
     # return 1 - K.mean(f1)
     return 1 - torch.mean(f1)
+def xr_loss(y_pred, y_true):
+    tp = torch.sum(y_true * y_pred, dim=0)
+    # tn = torch.sum((1 - y_true) * (1 - y_pred), dim=0)
+    # fp = torch.sum((1 - y_true) * y_pred, dim=0)
+    fn = torch.sum(y_true * (1 - y_pred), dim=0)
+
+    # p = tp / (tp + fp + float(1e-7))
+    r = tp / (tp + fn + float(1e-7))
+
+    # f1 = 2 * p * r / (p + r + float(1e-7))
+    # f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
+    # return 1 - K.mean(f1)
+    return 1 - torch.mean(r)
 # def f1_loss(input, target):
 

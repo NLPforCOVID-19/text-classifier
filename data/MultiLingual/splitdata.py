@@ -1,13 +1,17 @@
 import argparse
 import json
 import os
+import re
 from random import random
 from langdetect import detect
+from transformers import BertTokenizer
 
 parser = argparse.ArgumentParser(
         description='Bert Classifier Project for Covid-19')
     # data arguments
 parser.add_argument('--input', default='crowdsourcing20200420.processed.jsonl',
+                        help='path to annotated data')
+parser.add_argument('--input_retreated', default='crowdsourcing20200420.processed.jsonl',
                         help='path to annotated data')
 parser.add_argument('--output', default='0421',
                         help='path to annotated data')
@@ -17,16 +21,38 @@ divided_dataset = [[] for _ in range(3)]
 
 with open(args.input,"r") as f:
     dataset = f.readlines()
+with open(args.input_retreated,"r") as f:
+    dataset_retreated = json.loads(f.read())
 dataset = [json.loads(x) for x in dataset]
-dataset = filter(lambda x: "cleaned_text" in x.keys() and x["title"]!=r'', dataset)
+dataset = list(filter(lambda x: "cleaned_text" in x.keys() and len(x["title"])>0, dataset))
+tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+for x in dataset:
+    sents = re.split('; |\*|\n|\. |。',x["cleaned_text"])
+    sents = [tokenizer.tokenize(x) for x in sents]
+    x["cleaned_text"] = list(filter(lambda x: len(x)> 3, sents))
+    # print(x)
+# dataset = list(dataset) + dataset_retreated
+# dataset = list(filter(lambda x: "cleaned_text" in x.keys() and x["title"]!=r'', dataset))
+print(len(dataset), len(dataset_retreated))
 for sample in dataset:
     try:
-        lang = detect(sample["cleaned_text"])
-        sample['lang'] = lang
-    except Exception:
-        print(sample["title"])
-        # print(
+        lang = detect(sample["title"])
+        if lang in ['de', 'ja', 'fa', 'it', 'pt', 'es', 'fr', 'en', 'vi', 'zh-cn', 'ru', 'ar', 'ko']:
+            sample['lang'] = lang
+        else:
+            print(lang)
+            print(sample["title"])
+            del sample
+    except Exception as e:
+        print(e)
+        del sample
         continue
+
+for sample in dataset_retreated:
+    sample['lang'] = 'ja'
+print(len(dataset), len(dataset_retreated))
+dataset = dataset_retreated+dataset
+for sample in dataset:
     dice = random()
     if dice < 0.8:
         divided_dataset[0].append(json.dumps(sample))

@@ -5,13 +5,17 @@ import logging
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from datetime import datetime
 
 # from helpers import Trainer
 #
+from torch.utils.tensorboard import SummaryWriter
+
 from utils import HParams, DetVocab, parse_args, Trainer, print_evals, get_tags_from_dataset
 
-from model import BertMinMax, BertRNN, BCDataset
-from utils.trainer import SentenceTrainer, ArticleTrainer
+from model import BertMeanMax, BertRNN, BCDataset
+from utils.evals import get_fs
+from utils.trainer import SentenceTrainer
 
 
 def main():
@@ -20,6 +24,11 @@ def main():
     hparams = HParams()
     args = parse_args()
     hparams.set_from_args(args)
+
+    #introducing summary writer
+    writer = SummaryWriter(log_dir=args.expdir+args.expname+str(datetime.now()))
+    hparams.writer = writer
+
 
     # print(hparams.batchsize)
     # setting up logger
@@ -44,12 +53,12 @@ def main():
     hparams.device = device
 
     # mode setting
-    if args.debug:
-        import pydevd_pycharm
-        pydevd_pycharm.settrace('localhost', port=12025, stdoutToServer=True, stderrToServer=True)
-    if args.sparse and args.wd != 0:
-        logger.error('Sparsity and weight decay are incompatible, pick one!')
-        exit()
+    # if args.debug:
+    #     import pydevd_pycharm
+    #     pydevd_pycharm.settrace('localhost', port=12025, stdoutToServer=True, stderrToServer=True)
+    # if args.sparse and args.wd != 0:
+    #     logger.error('Sparsity and weight decay are incompatible, pick one!')
+    #     exit()
     # print out arguments
     hparams.logger.debug(args)
     # seeding
@@ -72,7 +81,7 @@ def main():
         model = BertRNN(args.bert_path, classes_vocab.size(), hparams,
                                langs=['de', 'ja', 'fa', 'it', 'pt', 'es', 'fr', 'en', 'vi', 'zh-cn', 'ru', 'ar', 'ko'])
     else:
-        model = BertMinMax(args.bert_path, classes_vocab.size(), hparams,
+        model = BertMeanMax(args.bert_path, classes_vocab.size(), hparams,
                            langs = ['de', 'ja', 'fa', 'it', 'pt', 'es', 'fr', 'en', 'vi', 'zh-cn', 'ru', 'ar', 'ko'])
     if not args.finetuning:
         model.setoff_bert()
@@ -91,7 +100,6 @@ def main():
         # print(train_dataset[0])
         torch.save(train_dataset, train_file)
     logger.debug('==> Size of train data:{}'.format(len(train_dataset)))
-    # train_dataset.moveto(hparams.device)
 
     dev_file = os.path.join(args.data, 'dev.pth')
     if os.path.isfile(dev_file):
@@ -109,9 +117,9 @@ def main():
         test_dataset = BCDataset.loadData(test_json, model.tokenize, model.token2id, device)
         torch.save(test_dataset, test_file)
     logger.debug('==> Size of test data:{}'.format(len(test_dataset)))
-    # print(train_dataset.get_langs())
-    # exit()
-    criterion = nn.NLLLoss()
+
+
+    criterion = nn.BCELoss()
     model.to(hparams.device), criterion.to(hparams.device)
     if args.optim == 'adam':
         optimizer = optim.AdamW(filter(lambda p: p.requires_grad,
@@ -124,24 +132,29 @@ def main():
                                      model.parameters()), lr=args.lr, weight_decay=args.wd)
 
     if args.article_level:
-        trainer = ArticleTrainer(hparams, model, criterion, optimizer)
+        # trainer = ArticleTrainer(hparams, model, criterion, optimizer)
+        pass
     else:
         trainer = SentenceTrainer(hparams, model, criterion, optimizer)
     model_file = os.path.join(args.save, args.expname)
-    # print(model.parameters())
-    # exit()
 
-
-    best = float('inf')
+    f_best = 0.0
+    detail_best = [0.0 for _ in range(12)]
     for epoch in range(args.epochs):
         train_loss = trainer.train(train_dataset)
         logger.info('==> Epoch {}, Train \tLoss: {} '.format(epoch, train_loss))
-        if train_loss < best:
-            torch.save(model.state_dict(), model_file)
-        dev_loss = trainer.eval(dev_dataset)
-        logger.info('==> Epoch {}, Dev \tLoss: {} '.format(epoch, dev_loss))
+        # if train_loss < best:
+        #     torch.save(model.state_dict(), model_file)
+        prediction = trainer.test(dev_dataset)
+        f = get_fs(prediction, get_tags_from_dataset(dev_dataset), writer)
         results = trainer.test(test_dataset)
-        print_evals(results, get_tags_from_dataset(test_dataset), logger)
+        details = print_evals(results, get_tags_from_dataset(test_dataset), writer, detail_best, epoch)
+        if f_best < f:
+            torch.save(model.state_dict(), model_file)
+            detail_best = details
+            f_best = f
+        # logger.info('==> Epoch {}, Dev \tLoss: {} '.format(epoch, dev_loss))
+
         trainer.epoch+=1
         # train_metrics = trainer.test(train_dataset)
 

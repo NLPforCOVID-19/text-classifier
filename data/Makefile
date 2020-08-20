@@ -22,13 +22,13 @@ upload:$(OUTPUT_DIR)/uploadlist $(OUTPUT_DIR)/output.json
 	make cleanupload
 $(DATASET_DIR)/crowdsourcing.train: $(OUTPUT_DIR)/output.json
 	python3 preprocessing.py
-	python3 splitdata.py --input $(ANNOTATION_FILE) --output $(DATASET_DIR)
+	python3 splitdata.py --input $(ANNOTATION_FILE) --input $(ANNOTATION_FILE) --output $(DATASET_DIR)
 #	touch $(DATASET_DIR)/finished
 #	sed -n '1,2440 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.train
 #	sed -n '2441,2748 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.dev
 #	sed -n '2749,3050 p' crowdsourcing20200420.processed.jsonl > 0421/crowdsourcing.test
 
-$(OUTPUT_DIR)/output.json: $(OUTPUT_DIR)/metadata.json keywords.txt
+$(OUTPUT_DIR)/output.json: $(OUTPUT_DIR)/metadata.json MultiLingual/keywords.txt
 	python3 classifier.py -d $(DATA_DIR) $< keywords.txt $@
 
 $(OUTPUT_DIR)/metadata.json: $(OUTPUT_DIR)/target_files.txt

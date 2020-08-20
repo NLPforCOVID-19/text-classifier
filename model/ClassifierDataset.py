@@ -56,11 +56,17 @@ class BCDataset(data.Dataset):
         pos_count = torch.zeros(12, dtype = torch.float, device=device)
         for item in items:
             # print(item)
-            sents = item["cleaned_text"]
-            sents = re.split('; |\*|\n|\. |。',sents)
-            sents = [tokenize(item["title"])] + [tokenize(x.strip('\n')) for x in sents]
-            sents = list(filter(lambda x: len(x) > 5, sents))
-            sents = [x[:128] for x in sents]
+            try:
+                sents = item["cleaned_text"]
+                doc_langs.append(item["lang"])
+            except Exception as e:
+                print(e)
+                print(item)
+                continue
+            # sents = re.split('; |\*|\n|\. |。',sents)
+            # sents = [tokenize(item["title"])] + [tokenize(x.strip('\n')) for x in sents]
+            sents = list(filter(lambda x: len(x) > 3, sents))
+            sents = [x for x in sents]
             sents = [torch.tensor(convertToken2Idx(['CLS'] + x + ['SEP']), dtype=torch.long, device = device) for x in sents]
 
             if len(sents) == 0:
