@@ -1,0 +1,11 @@
+is_about_COVID-19
+is_useful
+is_clear
+is_about_false_rumor
+感染状況
+予防・緊急事態宣言
+症状・治療・検査など医療情報
+経済・福祉政策
+休校・オンライン授業
+芸能・スポーツ
+その他
