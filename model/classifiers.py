@@ -69,10 +69,8 @@ class BertClassifier(BaseClassifier):
         self.composer = [RNNComposer(hparam=hparam, hidden=768, input=768, bidirectionality=True).to(hparam.device) for _ in range(4)]
         # self.mixer = nn.Linear(768, 300)
         self.mixer_rnn = [nn.Linear(768*2,768).to(hparam.device) for _ in range(4)]
-        self.labels = nn.Linear(768, 1)  # Assuming BERT-BASE is used
-        self.is_related = nn.Linear(768, 1)
-        self.usefulness = nn.Linear(768, 1)
-        self.clarity = nn.Linear(768, 1)
+        self.labels = nn.Linear(768, 8)  # Assuming BERT-BASE is used
+        self.meta_info = nn.Linear(768, 4)
         self.attn = [Attn(AttnType.general, 768, 768).to(hparam.device) for _ in range(4)]
     def setoff_composer(self):
         for composer in self.composer:
@@ -81,12 +79,12 @@ class BertClassifier(BaseClassifier):
     def setoff_linear(self):
         for param in self.labels.parameters():
             param.requires_grad=False
-        for param in self.usefulness.parameters():
+        for param in self.meta_info.parameters():
             param.requires_grad=False
-        for param in self.clarity.parameters():
-            param.requires_grad=False
-        for param in self.is_related.parameters():
-            param.requires_grad=False
+        # for param in self.clarity.parameters():
+        #     param.requires_grad=False
+        # for param in self.is_related.parameters():
+        #     param.requires_grad=False
         for attn in self.attn:
             for param in attn.fh.parameters():
                 param.requires_grad = False
@@ -96,12 +94,12 @@ class BertClassifier(BaseClassifier):
                 param.requires_grad=True
         for param in self.labels.parameters():
             param.requires_grad=True
-        for param in self.usefulness.parameters():
+        for param in self.meta_info.parameters():
             param.requires_grad=True
-        for param in self.clarity.parameters():
-            param.requires_grad=True
-        for param in self.is_related.parameters():
-            param.requires_grad=True
+        # for param in self.clarity.parameters():
+        #     param.requires_grad=True
+        # for param in self.is_related.parameters():
+        #     param.requires_grad=True
         for attn in self.attn:
             for param in attn.fh.parameters():
                 param.requires_grad = True
@@ -124,17 +122,25 @@ class BertClassifier(BaseClassifier):
         doc_len = input_ids.size(0)
 
         # print(input_ids)
+        cnt = 0
+        while (cnt<doc_len):
+            cnt+=128
+            last_hiddens.append(self.model(input_ids[:128])[0])
+            input_ids = input_ids[128:]
 # /
 
-        last_hidden = self.model(input_ids)[0]
-        output_hidden = [None for _ in range(4)]
-        doc_representation = [None for _ in range(4)]
-        for i in range(4):
-            output_hidden[i] = self.composer[i](last_hidden[:, 0, :].unsqueeze(1))
-            output_hidden[i] = torch.cat((output_hidden[i][0], output_hidden[i][1]), dim=1)
-            # print(output_hidden[i].size())
-
-            doc_representation[i] = self.attn[i](self.mixer_rnn[i](output_hidden[i].view(-1)), last_hidden[:, 0, :])
+        last_hidden = torch.cat(last_hiddens, dim=0)
+        # print(last_hidden.size())
+        output_hidden = self.composer[0](last_hidden[:, 0, :].unsqueeze(1))
+        doc_representation = self.attn[0](self.mixer_rnn[0](output_hidden.view(-1)), last_hidden[:, 0, :])
+        # output_hidden = [None for _ in range(4)]
+        # doc_representation = [None for _ in range(4)]
+        # for i in range(4):
+        #     output_hidden[i] = self.composer[i](last_hidden[:, 0, :].unsqueeze(1))
+        #     output_hidden[i] = torch.cat((output_hidden[i][0], output_hidden[i][1]), dim=1)
+        #     # print(output_hidden[i].size())
+        #
+        #     doc_representation[i] = self.attn[i](self.mixer_rnn[i](output_hidden[i].view(-1)), last_hidden[:, 0, :])
 
 
         # output_hidden_relateness = self.composer[i](last_hidden[:, 0, :].unsqueeze(1))  #B,V,H
@@ -153,19 +159,13 @@ class BertClassifier(BaseClassifier):
 
 
 
-        is_related = self.is_related(doc_representation[0])
-        is_related_score = torch.sigmoid(is_related)
+        meta_info = self.meta_info(doc_representation)
+        meta_info_score = torch.sigmoid(meta_info)
 
-        clarity = self.clarity(doc_representation[1])
-        clarity_score = torch.sigmoid(clarity)
-
-        usefulness = self.usefulness(doc_representation[2])
-        usefulness_score = torch.sigmoid(usefulness)
-
-        topics = self.labels(doc_representation[3])
+        topics = self.labels(doc_representation)
         topics_score = torch.sigmoid(topics)
 
-        return torch.cat((is_related_score,  topics_score, clarity_score, usefulness_score), dim=0)#, torch.cat((clarity_score, usefulness_score), dim=0)
+        return torch.cat((meta_info_score,  topics_score), dim=0)#, torch.cat((clarity_score, usefulness_score), dim=0)
 
     def token2id(self, tokens):
         # Input tokens are a list of token

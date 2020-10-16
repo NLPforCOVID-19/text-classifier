@@ -6,13 +6,13 @@ from tqdm import tqdm
 # def eval_by_metric
 
 def print_evals(results, targets, logger):
-    output_tag = ["IsRelated", "Topic-感染状況", "Topic-予防・緊急事態宣言", "Topic-症状・治療・検査など医療情報", "Topic-経済・福祉政策", "Topic-休校・オンライン授業", " Topic-芸能・スポーツ",
-                  "Topic-デマに関する記事", "Topic-その他", "Clarity", "Usefulness"]
+    output_tag = ["IsRelated","デマに関する記事" , "Clarity", "Usefulness","Topic-感染状況", "Topic-予防・緊急事態宣言", "Topic-自粛緩和・制限解除", "Topic-症状・治療・検査など医療情報", "Topic-経済・福祉政策", "Topic-休校・オンライン授業", " Topic-芸能・スポーツ",
+                   "Topic-その他" ]
 
     for i in range(results.size(1)):
         logger.debug("Accuracy for tag {}: {}".format(output_tag[i], compute_accuracy(results[:, i], targets[:, i])))
         # p, r = compute_precision(results[:, 0], targets[:, 0]), compute_recall(results[:, 0], targets[:, 0])
-        f, p, r = prt_metric(results[:, i], targets[:, i])#, compute_recall(results[:, i], targets[:, i])
+        f, p, r = prt_metric(results[:, i], targets[:, i], logger)#, compute_recall(results[:, i], targets[:, i])
         logger.debug("P, R, F : {} {} {}".format(p, r, f))
 
     # logger.debug("Accuracy for tag IsRelated: {}".format(compute_accuracy(results[:, 0], targets[:,0])))
@@ -78,8 +78,8 @@ def get_tags_from_dataset(dataset):
 
     for idx in range(len(dataset)):
         doc, tag = dataset[idx]
-        isRelated, clarity, usefulness, topics = tag
-        tags.append(torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
+        isRelated, isRoumer, clarity, usefulness, topics = tag
+        tags.append(torch.cat((isRelated, isRoumer, clarity, usefulness, topics), dim=0))
     return torch.stack(tags, dim=0)
 
 def compute_precision(pred, target):
@@ -117,7 +117,7 @@ def compute_accuracy(pred, target):
     return correct/len(pred)
 
 
-def prt_metric(y_pred, y_true):
+def prt_metric(y_pred, y_true, logger):
     y_pred = torch.round(y_pred)
     # print(y_true, y_pred)
     tp = torch.sum(y_true*y_pred, dim=0)
@@ -125,7 +125,7 @@ def prt_metric(y_pred, y_true):
     fp = torch.sum((1-y_true)*y_pred, dim=0)
     fn = torch.sum(y_true*(1-y_pred), dim=0)
 
-    print("tp, tn, fp, fn: {} {} {} {}".format(tp, tn, fp, fn))
+    logger.debug("tp, tn, fp, fn: {} {} {} {}".format(tp, tn, fp, fn))
 
     p = tp / (tp + fp + float(1e-7))
     r = tp / (tp + fn + float(1e-7))

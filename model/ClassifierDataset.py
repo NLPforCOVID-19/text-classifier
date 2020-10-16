@@ -24,12 +24,13 @@ class SimpleVocab(object):
 
 
 class BCDataset(data.Dataset):
-    def __init__(self, docs, tag_isRelated, tag_clarity, tag_usefulness, topics, topicIdx):
+    def __init__(self, docs, tag_isRelated, tag_isRoumer, tag_clarity, tag_usefulness, topics, topicIdx):
         super(BCDataset, self).__init__()
         self.docs = docs
         self.tag_isRelated = tag_isRelated
         self.tag_clarity = tag_clarity
         self.tag_usefulness = tag_usefulness
+        self.tag_isRoumer = tag_isRoumer
         self.topics = topics
         self.topicIdx = topicIdx
         # print(topicIdx)
@@ -39,10 +40,11 @@ class BCDataset(data.Dataset):
     def __getitem__(self, index):
         doc = deepcopy(self.docs[index])
         isRelated = deepcopy(self.tag_isRelated[index])
+        isRoumer = deepcopy(self.tag_isRoumer[index])
         clarity = deepcopy(self.tag_clarity[index])
         usefulness = deepcopy(self.tag_usefulness[index])
         topics = deepcopy(self.topics[index])
-        return doc, (isRelated, clarity, usefulness, topics)
+        return doc, (isRelated, isRoumer,clarity ,usefulness, topics)
     def getTopicIdx(self):
         return self.topicIdx
     @staticmethod
@@ -55,6 +57,7 @@ class BCDataset(data.Dataset):
         tag_clarity = []
         tag_usefulness = []
         topics = []
+        tag_isRoumer = []
         topicIdx = None
         for item in items:
             # print(item)
@@ -68,13 +71,15 @@ class BCDataset(data.Dataset):
             # print(sents)
             sents = [torch.tensor(convertToken2Idx(sent), device = device) for sent in sents]
             docs.append(sents)
-            tag_isRelated.append(torch.tensor([item["labels"]["COVID-19関連"]], dtype=torch.float, device = device))
-            tag_clarity.append(torch.tensor([item["labels"]["clarity"]], dtype=torch.float, device = device))
-            tag_usefulness.append(torch.tensor([item["labels"]["usefulness"]], dtype=torch.float, device = device))
+            tag_isRoumer.append(torch.tensor([item["labels"]["is_about_false_rumor"]/item["cnt"]], dtype=torch.float, device = device))
+            tag_isRelated.append(torch.tensor([item["labels"]["is_about_COVID-19"]/item["cnt"]], dtype=torch.float, device = device))
+            tag_clarity.append(torch.tensor([item["labels"]["is_clear"]/item["cnt"]], dtype=torch.float, device = device))
+            tag_usefulness.append(torch.tensor([item["labels"]["is_useful"]/item["cnt"]], dtype=torch.float, device = device))
             if topicIdx is None:
                 topicIdx = list(item["labels"]["topics"].keys())
             # print(topicIdx)
+
             topics.append(torch.tensor([tuple[1]/item["cnt"] for tuple in item["labels"]["topics"].items()], dtype=torch.float, device = device))
-        return BCDataset(docs, tag_isRelated, tag_clarity, tag_usefulness, topics, topicIdx)
+        return BCDataset(docs, tag_isRelated, tag_isRoumer, tag_clarity, tag_usefulness, topics, topicIdx)
 
 

@@ -47,16 +47,17 @@ class Trainer(object):
         for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
             doc, tags = dataset[indices[idx]]
             # doc = [sent[:64] for sent in doc]
-            doc = doc[:256]
+            # doc = doc
             # doc = doc[:96]
-            isRelated, clarity, usefulness, topics = tags
+            isRelated,isRoumer, clarity, usefulness, topics = tags
+            # print(topics.size())
             doc = pad_sequence(doc).transpose(0,1) # padding document
             #result_ce, result_rmse = self.model(doc)
             result = self.model(doc)
             # print(result)
             #loss_ce = self.criterion(result_ce, torch.cat((isRelated, topics), dim=0))
             # print(result)
-            loss_ce = self.criterion(result, torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
+            loss_ce = self.criterion(result, torch.cat((isRelated,isRoumer, clarity, usefulness, topics), dim=0))
             #loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
             # loss_ce.requres_grad = True
@@ -92,13 +93,13 @@ class Trainer(object):
             results = []
             for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
                 doc, tags = dataset[idx]
-                doc = [sent[:64] for sent in doc]
-                doc = doc[:256]
-                isRelated, clarity, usefulness, topics = tags
+                # doc = [sent[:64] for sent in doc]
+                # doc = doc[:256]
+                isRelated, isRoumer, clarity, usefulness, topics = tags
                 doc = pad_sequence(doc).transpose(0, 1)  # padding document
                 result = self.model(doc)
                 # loss_ce = self.criterion(result_ce, torch.cat((isRelated, topics), dim=0))
-                loss_ce = self.criterion(result, torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
+                loss_ce = self.criterion(result, torch.cat((isRelated, isRoumer, clarity, usefulness, topics), dim=0))
                 # loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
                 # loss_ce.requres_grad = True
@@ -135,20 +136,20 @@ class Trainer(object):
             results = []
             for idx in tqdm(range(len(dataset)), desc='Training epoch ' + str(self.epoch + 1) + ''):
                 doc, tags = dataset[idx]
-                doc = [sent[:64] for sent in doc]
-                doc = doc[:256]
+                # doc = [sent[:64] for sent in doc]
+                # doc = doc[:256]
                 # for sent in doc:
                 #     sent.to(self.hparams.device)
                 # for tag in tags:
                 #     tag.to(self.hparams.device)
-                isRelated, clarity, usefulness, topics = tags
+                isRelated,isRoumer, clarity, usefulness, topics = tags
                 doc = pad_sequence(doc).transpose(0, 1)  # padding document
                 #result_ce, result_rmse = self.model(doc)
                 predictions = self.model(doc)
 
                 results.append(predictions)
-
-                loss_ce = self.criterion(predictions, torch.cat((isRelated, topics[-1].unsqueeze(0), clarity, usefulness), dim=0))
+                # print(torch.cat((isRelated, topics, clarity, usefulness), dim=0))
+                loss_ce = self.criterion(predictions, torch.cat((isRelated, isRoumer, clarity, usefulness, topics), dim=0))
                 # loss_rmse = self.criterion_rmse(result_rmse, torch.cat((clarity, usefulness), dim=0))
 
                 # loss_ce.requres_grad = True
