@@ -6,11 +6,17 @@ from xml.etree import ElementTree
 import unicodedata
 import json
 from collections import defaultdict
+
 from pyknp import Juman
+
+import sys
+sys.path.append('..')
+from preprocess.shorten_sentence import shorten
 
 logger = logging.getLogger(__name__)
 
 target_pos = ["名詞" ,"動詞", "未定義語"]
+
 
 def read_keywords(keyword_file):
     keywords = {}
@@ -32,38 +38,49 @@ def inquire_exclude(sent):
             return True
     return False
 
-def to_text(juman, standard_format, target_pos=[]):
-    "Convert standard format into a simple text (list of word lists)"
-    target_pos = set(target_pos)
-    texts = etree.findall(".//Title") + etree.findall(".//Description") + etree.findall(".//S")
-    wordlists, rawsentences = [], []
-    for text in texts:
-        # print(text.attrib)
-        if text.tag == "S" and  text.attrib["BlockType"] == "unknown_block": continue
-        annotation = text.find("Annotation")
-        if annotation is None: continue
-        mlist = juman.result(annotation.text)
-        wordlists.append([unicodedata.normalize("NFKC", m.midasi) for m in mlist.mrph_list() if m.hinsi in target_pos])
-        rawsentence = text.find("RawString")
-        rawsentences.append(rawsentence.text)
-    return wordlists, rawsentences
-
-def classify(text, rawtext, keyword_dict):
+def classify(text, rawtext, keyword_dict, page):
     "Classify a text into pre-defined classes"
     classes = {}
     snippets = {}
+    snippets_en = {}
     for clss, keywords in keyword_dict.items():
         classes[clss] = 0
         snippet_scores = []
-        for wordlist, rawsentence in zip(text, rawtext):
+        for idx, (wordlist, rawsentence) in enumerate(zip(text, rawtext)):
             if len(wordlist) <= 3: continue   # ignore sentences with <=3 content words
             string = ''.join(wordlist)
             num_keywords = sum([1 for key in keywords if key in string])
             if num_keywords >= 1:
                 classes[clss] = 1
-                snippet_scores.append((rawsentence, num_keywords / len(wordlist)))
-        snippets[clss] = [a[0] for a in sorted(snippet_scores, key=lambda x: x[1], reverse=True)]
-    return classes, snippets
+                snippet_scores.append((rawsentence, num_keywords / len(wordlist), idx))
+        # snippets[clss] = [shorten(a[0], is_title=False) for a in sorted(snippet_scores, key=lambda x: x[1], reverse=True)]
+        snippets[clss] = []
+        snippets_en[clss] = []
+        used_eidxs = {}
+        for rawsentence, ratio, idx in sorted(snippet_scores, key=lambda x: x[1], reverse=True):
+            snippets[clss].append(shorten(rawsentence, is_title=False))
+            eidx = page["idxmap"][idx]
+            if eidx in used_eidxs:
+                pass
+                #sys.stderr.write("sentence already usd: {}d\n".format(page["en_translated"]["rawsentences"][eidx]))
+            else:
+                snippets_en[clss].append(page["en_translated"]["rawsentences"][eidx])
+                used_eidxs[eidx] = True
+    return classes, snippets, snippets_en
+
+def extract_meta_add_keyword_classify(keyword_file, meta):
+    with open(keyword_file, "r") as f:
+        keywords = read_keywords(f)
+
+    wordlists, rawsentences = meta["wordlists"], meta["rawsentences"]
+    classes, snippets, snippets_en = classify(wordlists, rawsentences, keywords, meta)
+    meta["classes"] = classes
+    meta["labels"] = [key for key in classes.keys() if classes[key] > 0]
+    meta["snippets"] = snippets
+    meta["snippets_en"] = snippets_en
+
+    return meta
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(name)s:%(levelname)s: %(message)s')
@@ -88,34 +105,18 @@ if __name__ == "__main__":
         for line in metadata_file:
             line = line.strip()
             item = json.loads(line)
-            page = item["meta"]
-            xml_file = page[args.target]["xml_file"]
-            #print(xml_file)
-            try:
-                etree = ElementTree.parse(f"{args.directory}/{xml_file}")
-                num_pages += 1
-            except ElementTree.ParseError:
-                logger.error("XML file broken: %s", xml_file)
-                num_ignored += 1
-                del item
-                continue
-            wordlists, rawsentences = to_text(juman, etree, target_pos)
-            rawsentences = list(filter(lambda x: not inquire_exclude(x), rawsentences))
-            cleansentences = []
-            slicecontainer = []
-            for slice in rawsentences:
-                slicecontainer.append(slice)
-                if slice.endswith("。"):
-                    cleansentences.append("".join(slicecontainer))
-                    slicecontainer = []
+            # # page = item["meta"]
+            page = item # HACK
+            wordlists, rawsentences = page["wordlists"], page["rawsentences"]
 
-            item["text"] = "\n".join(cleansentences)
+            sys.stderr.write("{}\n".format(page["orig"]["file"]))
 
             # apply classifier
-            classes, snippets = classify(wordlists, rawsentences, keywords)
+            classes, snippets, snippets_en = classify(wordlists, rawsentences, keywords, page)
             page["classes"] = classes
             item["labels"] = [key for key in classes.keys() if classes[key] > 0]
             page["snippets"] = snippets
+            page["snippets_en"] = snippets_en
             for clss, output in classes.items():
                 statistics[clss] += output
 

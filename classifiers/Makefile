@@ -34,6 +34,3 @@ test-bertsimple: $(DATA_DIR)/annotations-test.jsonl $(BERTSIMPLE_MODEL) $(CLASSE
 run-bertsimple: $(DATA_DIR)/textdata.jsonl $(BERTSIMPLE_MODEL) $(CLASSES_FILE)
 	python bertsimple.py test --gpu --batch 256 --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --output-file $(DATA_DIR)/textdata-bertsimple.jsonl --classes-file $(CLASSES_FILE)
 
-learning-curve-bertsimple: $(DATA_DIR)/annotations-train.jsonl $(CLASSES_FILE) $(BERT_MODEL)
-	mkdir -p $(dir $(BERTSIMPLE_MODEL))
-	python bertsimple.py learning --gpu --pos-weight --batch 32 --epoch 100 --bert-model $(BERT_MODEL) --text-file $< --model-path $(BERTSIMPLE_MODEL) --classes-file $(CLASSES_FILE) --dataset-ratio 0.01,0.02,0.04,0.08,0.16,0.32,0.64,1.0

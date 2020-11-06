@@ -1,0 +1,3 @@
+metadata.py
+    Compared with metadata.py in https://github.com/NLPforCOVID-19/text-classifier/tree/master
+    we added extract_meta() function to better process one url_path
