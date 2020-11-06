@@ -1,15 +1,15 @@
 # text-classifier
 
-Before:
+## Before:
 
 Loading BERT model and text-classifier model once for each article.
 
 
-After:
+## After:
 
 Loading BERT model and text-classifier model only once, using them to process all articles.
 
-Usage:
+## Usage:
 ```
 python launch.py
 ```
